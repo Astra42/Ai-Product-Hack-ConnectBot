@@ -1,4 +1,4 @@
-# ssh & remoute dev 
+# ssh & remote dev 
 
 ### Создаем ключик 
 
