@@ -1,30 +1,25 @@
-import os
+import os, sys
 import uvicorn
 import traceback
 import secrets
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 
-class User:
-    def __init__(self, id: str):
-        self.id = id
-        self.name = None
-        self.about_me = None
-        self.cv_path = None
-        self.target = None
-
-    def __make_attrs_like_dict(self):
-        return vars(self)
-
-    def __str__(self):
-        return str(self.__make_attrs_like_dict())
-
-    def __repr__(self):
-        return str(self.__make_attrs_like_dict())
-
+from data_science.recsys.recsys import TextVectorizer_v2, RecSys
+from data_science.recsys.user import User
 
 app = FastAPI()
 
-USERS = {}  # id:User
+
+
+USERS = { 
+    "1": User(1, "Боб", "Я люблю Data Science, люблю чай и бананы. Меня зовут Ярик, хочу стать ML инженером", '1234', "Ищу человека, который любит банановый сок, чай с ромашкой и работает в СБЕРе"),
+    "2": User(2, "Макс", "Я люблю DS, увлекаюсь машинным обучением. Ем бананы и пью чай с ромашкой. Развиваюсь в NLP работаю в Сбере. ", "12345", "Ищу людей с именем Ярик. Или тех кто шарит за Ml, NLP"),
+    "3": User(3, "Алиса", "Люблю Сбер и Боба", "12345", "Ищу людей кто шарит за ML и арбузы любит")
+}  # id:User
+
+model_vectorizer = TextVectorizer_v2("intfloat/multilingual-e5-large-instruct")
+recsys = RecSys(model_vectorizer)
+
 
 @app.post("/profile/{profile_id}")
 async def update_profile(profile_id: str, update_data: dict):
@@ -67,49 +62,48 @@ async def predict(profile_id: str):
     return top_dict
 
 
-
-
 async def get_top_5(profile_id: str):
     """Тут DS логика. Пользователи лежат в словаре USERS (profile_id: класс User)"""
-    return [
-    {
-        'id': 1,
-        'name': 'Алексей Иванов',
-        'about_me': 'Опытный разработчик на Python с 5 летним стажем.',
-        'cv_path': '/path/to/cv_alexei.pdf',
-        # 'target': 'Ищу тех, кто разбирается в карбюраторах'
-    },
-    {
-        'id': 2,
-        'name': 'Елена Петрова',
-        'about_me': 'Молодой и перспективный дизайнер UI/UX.',
-        'cv_path': '/path/to/cv_elena.pdf',
-        # 'target': 'Ведущих дизайнеров'
-    },
-    {
-        'id': 3,
-        'name': 'Райн Гослинг',
-        'about_me': 'Специалист по технике с опытом работы в крупных компаниях.',
-        'cv_path': '/path/to/cv_rain.pdf',
-        # 'target': 'Людей кто поможет мигрировать с Notion'
-    },
-    {
-        'id': 4,
-        'name': 'Ольга Васильева',
-        'about_me': 'Опытный аналитик данных с навыками машинного обучения.',
-        'cv_path': '/path/to/cv_olga.pdf',
-        # 'target': 'Хочу переехать в ml. Ищу ml-щиков'
-    },
-    {
-        'id': 5,
-        'name': 'Дмитрий Михайлов',
-        'about_me': 'Молодой и перспективный разработчик мобильных приложений.',
-        'cv_path': '/path/to/cv_dmitriy.pdf',
-        # 'target': 'Ищу людей с фамилией Михайлов'
-    }
-]
 
+    return recsys.get_score_by_forms(USERS, profile_id)
 
+#     return [
+#     {
+#         'id': 1,
+#         'name': 'Алексей Иванов',
+#         'about_me': 'Опытный разработчик на Python с 5 летним стажем.',
+#         # 'cv_path': '/path/to/cv_alexei.pdf',
+#         # 'target': 'Ищу тех, кто разбирается в карбюраторах'
+#     },
+#     {
+#         'id': 2,
+#         'name': 'Елена Петрова',
+#         'about_me': 'Молодой и перспективный дизайнер UI/UX.',
+#         # 'cv_path': '/path/to/cv_elena.pdf',
+#         # 'target': 'Ведущих дизайнеров'
+#     },
+#     {
+#         'id': 3,
+#         'name': 'Райн Гослинг',
+#         'about_me': 'Специалист по технике с опытом работы в крупных компаниях.',
+#         # 'cv_path': '/path/to/cv_rain.pdf',
+#         # 'target': 'Людей кто поможет мигрировать с Notion'
+#     },
+#     {
+#         'id': 4,
+#         'name': 'Ольга Васильева',
+#         'about_me': 'Опытный аналитик данных с навыками машинного обучения.',
+#         # 'cv_path': '/path/to/cv_olga.pdf',
+#         # 'target': 'Хочу переехать в ml. Ищу ml-щиков'
+#     },
+#     {
+#         'id': 5,
+#         'name': 'Дмитрий Михайлов',
+#         'about_me': 'Молодой и перспективный разработчик мобильных приложений.',
+#         # 'cv_path': '/path/to/cv_dmitriy.pdf',
+#         # 'target': 'Ищу людей с фамилией Михайлов'
+#     }
+# ]
 
 if __name__ == "__main__":
     uvicorn.run(app, host='127.0.0.1', port=8001)
