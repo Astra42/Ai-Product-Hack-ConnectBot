@@ -5,17 +5,21 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
 import aiohttp#ассинх аналог requests
-import bot.keyboards as kb
+import keyboards as kb
 
 
 router = Router()
-USERS = {}  # id:User
 
 class Form(StatesGroup):
     name = State()
+    edit_name = State()
     about_me = State()
+    edit_about_me = State()
     cv_path = State()
+    edit_cv_path = State()
     target = State()
+    edit_target = State()
+
 
 async def update_data(profile_id, data_dict={}):
     async with aiohttp.ClientSession() as session:
@@ -35,6 +39,23 @@ async def get_specific_profile(profile_id):
                 print(f"Ошибка при получении профиля, статус: {response.status}")
                 return None
 
+@router.message(Command('set_profile'))
+async def ask_confirmation(message: Message):
+    user_id = message.from_user.id
+    user_dict = await get_specific_profile(user_id)
+    if user_dict == '404':
+        await message.answer("Упс, кажется Ваша анкета пуста 🙈", reply_markup=kb.fill_pls_kb)
+    else:
+        user_dict = eval(eval(user_dict))
+        print(user_dict, type(user_dict))
+
+        profile_str =f"{user_dict['name']}, твоя анкета:\n\n"+\
+            f"🧐Обо мне:\n{user_dict['about_me']}\n\n"+\
+            f"📝CV ссылка:\n{user_dict['cv_path']}\n\n"+\
+            f"🔎Ищу:\n{user_dict['target']}"
+
+        await message.answer(profile_str, reply_markup=kb.profile_kb)
+
 
 @router.message(CommandStart())
 async def start(message: Message):
@@ -46,28 +67,36 @@ async def start(message: Message):
     await message.answer(hi_str, reply_markup=kb.hi_kb)
 
 
-@router.callback_query(F.data == 'start_form')
+@router.callback_query((F.data == 'start_form') | (F.data == "edit_name"))
 async def greeting(callback: CallbackQuery, state: FSMContext):
     # -------------BD: create user ------------
-    user_id = callback.message.from_user.id
-    await update_data(user_id)
+    if not 'edit_name' in callback.message.text:
+        user_id = callback.message.from_user.id
+        await update_data(user_id)
     # -----------------------------------------
     await state.set_state(Form.name)
-    print(f"Added new user {USERS}")
     meet_msg = """Давай познакомимся, как тебя зовут?"""
     await callback.message.answer(meet_msg)
 
+@router.callback_query(F.data == "edit_name")
+async def edit_name(callback: CallbackQuery):
+    await callback.answer(reply_markup=kb.edited_kb)
+
 
 @router.message(Form.name)
+@router.callback_query((F.data == 'edit_name') | (F.data == "edit_about_me"))
 async def who_are_you(message: Message, state: FSMContext):
     # -------------BD: fill name ------------
     user_id = message.from_user.id
     await update_data(user_id, {"name": message.text})
     # -----------------------------------------
-    await state.update_data(name=message.text)
-    await state.set_state(Form.about_me)
-    about_msg = """Расскажи о себе, может ты любишь пиво-смузи или управляешь банановой республикой?"""
-    await message.answer(about_msg)
+    if message.text == 'edit_name':
+        await message.answer('Назад к анкете', reply_markup=kb.edited_kb)
+    else:
+        await state.update_data(name=message.text)
+        await state.set_state(Form.about_me)
+        about_msg = """Расскажи о себе, может ты любишь пиво-смузи или управляешь банановой республикой?"""
+        await message.answer(about_msg)
 
 
 @router.message(Form.about_me)
@@ -94,27 +123,19 @@ async def get_target(message: Message, state: FSMContext):
     target_msg = """Опиши в свободной форме собеседника, которого ты хочешь найти"""
     await message.answer(target_msg)
 
-
-@router.message(Command("set_profile"))
 @router.message(Form.target)
-async def ask_confirmation(message: Message, state: FSMContext):
+async def set_target(message: Message, state: FSMContext):
+    print('A')
     # -------------BD: fill target ------------
-    user_id = message.from_user.id
-    await update_data(user_id, {"target": message.text})
+    if message.text != "/set_profile":
+        user_id = message.from_user.id
+        await update_data(user_id, {"target": message.text})
     # -----------------------------------------
-    user_dict = await get_specific_profile(user_id)
-    print(user_dict)
-    print(user_dict, type(user_dict))
+    await state.update_data(target=message.text)
+    await ask_confirmation(message)
 
-    user_dict = eval(eval(user_dict))
-    print(user_dict, type(user_dict))
 
-    profile_str =f"{user_dict['name']}\n"+\
-        f"🧐Обо мне:\n{user_dict['about_me']}\n"+\
-        f"📝CV ссылка:\n{user_dict['cv_path']}\n"+\
-        f"🔎Ищу:\n{user_dict['target']}"
 
-    await message.answer(profile_str)
 
     # await state.update_data(target=message.text)
     # await state.set_state(Form.target)

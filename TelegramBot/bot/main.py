@@ -2,8 +2,8 @@ import os
 import asyncio
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import BotCommandScopeDefault
-from bot.handlers import router
-from bot.keyboards import navigation_kb
+from handlers import router
+from keyboards import navigation_kb
 
 with open("bot_token.txt", 'r') as f:
     TOKEN = f.read()

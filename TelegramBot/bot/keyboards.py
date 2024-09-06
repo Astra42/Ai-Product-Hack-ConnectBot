@@ -1,12 +1,25 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton,\
     InlineKeyboardMarkup, InlineKeyboardButton, BotCommand, BotCommandScopeDefault
 
-navigation_kb = [BotCommand(command='set_profile', description='📝Моя анкета'),
+navigation_kb = [BotCommand(command='start', description='🚀Старт'),
+            BotCommand(command='set_profile', description='📝Моя анкета'),
             BotCommand(command='search_interlocutor', description='🔎Поиск'),]
 #BotCommand(command='change_language', description='⚙language')
 
 
 hi_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🚀", callback_data="start_form")]])
+
+fill_pls_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="заполнить!", callback_data="start_form")]])
+
+edited_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Назад к анкете", )]])
+
+
+profile_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Поиск собеседника🔎", callback_data="search_interlocutor")],
+                                                   [InlineKeyboardButton(text="⚙Имя", callback_data="edit_name", ),
+                                                    InlineKeyboardButton(text="⚙О себе", callback_data="edit_about_me")],
+                                                    [InlineKeyboardButton(text="⚙СV", callback_data="edit_cv_path"),
+                                                    InlineKeyboardButton(text="⚙Кого ищу", callback_data="edit_target")]])
+
 
 
 main = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Каталог")],
