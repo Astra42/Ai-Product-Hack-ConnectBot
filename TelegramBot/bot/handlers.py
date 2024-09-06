@@ -10,14 +10,16 @@ import keyboards as kb
 
 router = Router()
 
-class Form(StatesGroup):
+class Form(StatesGroup): #Состояния для заполнения формы
     name = State()
-    edit_name = State()
     about_me = State()
-    edit_about_me = State()
     cv_path = State()
-    edit_cv_path = State()
     target = State()
+
+class Editing(StatesGroup):#Состояния для редактирования
+    edit_name = State()
+    edit_about_me = State()
+    edit_cv_path = State()
     edit_target = State()
 
 
@@ -39,7 +41,18 @@ async def get_specific_profile(profile_id):
                 print(f"Ошибка при получении профиля, статус: {response.status}")
                 return None
 
+async def get_top_5(profile_id): #-> List[dict]
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"http://localhost:8001/profile/predict_for/{profile_id}") as response:
+            if response.status == 200:
+                return await response.text()
+            else:
+                print(f"Ошибка при получении предсказания, статус: {response.status}")
+                return None
+
+
 @router.message(Command('set_profile'))
+@router.callback_query((F.data == 'set_profile'))
 async def ask_confirmation(message: Message):
     user_id = message.from_user.id
     user_dict = await get_specific_profile(user_id)
@@ -53,8 +66,10 @@ async def ask_confirmation(message: Message):
             f"🧐Обо мне:\n{user_dict['about_me']}\n\n"+\
             f"📝CV ссылка:\n{user_dict['cv_path']}\n\n"+\
             f"🔎Ищу:\n{user_dict['target']}"
-
-        await message.answer(profile_str, reply_markup=kb.profile_kb)
+        try:#Здесь под message скрывается коллебк - обрабатываем его
+            await message.message.answer(profile_str, reply_markup=kb.profile_kb)
+        except Exception:#если не угадали - это обычный message
+            await message.answer(profile_str, reply_markup=kb.profile_kb)
 
 
 @router.message(CommandStart())
@@ -66,39 +81,58 @@ async def start(message: Message):
 """
     await message.answer(hi_str, reply_markup=kb.hi_kb)
 
-
-@router.callback_query((F.data == 'start_form') | (F.data == "edit_name"))
+#------------------------------------------- 1 - name ----------------
+@router.callback_query((F.data == 'start_form'))#Первое знакомство: получить имя
 async def greeting(callback: CallbackQuery, state: FSMContext):
     # -------------BD: create user ------------
-    if not 'edit_name' in callback.message.text:
-        user_id = callback.message.from_user.id
-        await update_data(user_id)
+    user_id = callback.message.from_user.id
+    await update_data(user_id)
     # -----------------------------------------
     await state.set_state(Form.name)
     meet_msg = """Давай познакомимся, как тебя зовут?"""
     await callback.message.answer(meet_msg)
 
-@router.callback_query(F.data == "edit_name")
-async def edit_name(callback: CallbackQuery):
-    await callback.answer(reply_markup=kb.edited_kb)
+@router.callback_query(F.data == "edit_name")#Редактировать имя - вопрос
+async def edit_name(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer("""Новое имя:""")
+    await state.set_state(Editing.edit_name)
+
+@router.message(Editing.edit_name) # Редактировать имя - переход в меню
+async def edit_name(message: Message):
+    # -------------BD: fill name ------------
+    user_id = message.from_user.id
+    await update_data(user_id, {"name": message.text})
+    # -----------------------------------------
+    await message.answer('Супер! Записано!✏', reply_markup=kb.back_to_profile)
 
 
+#------------------------------------------- 2 - about ----------------
 @router.message(Form.name)
-@router.callback_query((F.data == 'edit_name') | (F.data == "edit_about_me"))
 async def who_are_you(message: Message, state: FSMContext):
     # -------------BD: fill name ------------
     user_id = message.from_user.id
     await update_data(user_id, {"name": message.text})
     # -----------------------------------------
-    if message.text == 'edit_name':
-        await message.answer('Назад к анкете', reply_markup=kb.edited_kb)
-    else:
-        await state.update_data(name=message.text)
-        await state.set_state(Form.about_me)
-        about_msg = """Расскажи о себе, может ты любишь пиво-смузи или управляешь банановой республикой?"""
-        await message.answer(about_msg)
+    await state.update_data(name=message.text)
+    await state.set_state(Form.about_me)
+    about_msg = """Расскажи о себе, может ты любишь пиво-смузи или управляешь банановой республикой?"""
+    await message.answer(about_msg)
+
+@router.callback_query(F.data == "edit_about_me")#Редактировать Обо мне - вопрос
+async def edit_name(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer("""Изменить о себе:""")
+    await state.set_state(Editing.edit_about_me)
+
+@router.message(Editing.edit_about_me) # Редактировать Обо мне - переход в меню
+async def edit_name(message: Message):
+    # -------------BD: fill about_me ------------
+    user_id = message.from_user.id
+    await update_data(user_id, {"about_me": message.text})
+    # -----------------------------------------
+    await message.answer('Супер! Записано!✏', reply_markup=kb.back_to_profile)
 
 
+#------------------------------------------- 3 - CV ----------------
 @router.message(Form.about_me)
 async def get_cv(message: Message, state: FSMContext):
     # -------------BD: fill about_me ------------
@@ -111,7 +145,21 @@ async def get_cv(message: Message, state: FSMContext):
 Чтобы мы смогли получше тебя узнать, ты можешь дать нам больше подробностей"""
     await message.answer(cv_msg)
 
+@router.callback_query(F.data == "edit_cv_path")#Редактировать CV - вопрос
+async def edit_name(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer("""Изменить ссылку на CV:""")
+    await state.set_state(Editing.edit_cv_path)
 
+@router.message(Editing.edit_cv_path) # Редактировать CV - переход в меню
+async def edit_name(message: Message):
+    # -------------BD: fill about_me ------------
+    user_id = message.from_user.id
+    await update_data(user_id, {"cv_path": message.text})
+    # -----------------------------------------
+    await message.answer('Супер! Записано!✏', reply_markup=kb.back_to_profile)
+
+
+#------------------------------------------- 4 Target ----------------
 @router.message(Form.cv_path)
 async def get_target(message: Message, state: FSMContext):
     # -------------BD: fill cv ------------
@@ -122,6 +170,20 @@ async def get_target(message: Message, state: FSMContext):
     await state.set_state(Form.target)
     target_msg = """Опиши в свободной форме собеседника, которого ты хочешь найти"""
     await message.answer(target_msg)
+
+@router.callback_query(F.data == "edit_target")  # Редактировать таргет - вопрос
+async def edit_name(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer("""Изменить описание собеседника:""")
+    await state.set_state(Editing.edit_target)
+
+@router.message(Editing.edit_target)  # Редактировать таргет - переход в меню
+async def edit_name(message: Message):
+    # -------------BD: fill about_me ------------
+    user_id = message.from_user.id
+    await update_data(user_id, {"target": message.text})
+    # -----------------------------------------
+    await message.answer('Супер! Записано!✏', reply_markup=kb.back_to_profile)
+
 
 @router.message(Form.target)
 async def set_target(message: Message, state: FSMContext):
@@ -134,19 +196,33 @@ async def set_target(message: Message, state: FSMContext):
     await state.update_data(target=message.text)
     await ask_confirmation(message)
 
+#Предсказываемся
+@router.message(Command('search_interlocutor'))
+@router.callback_query(F.data == 'search_interlocutor')
+async def catalog(message: Message):
+    user_id = message.from_user.id
+    users_list = await get_top_5(user_id)
+    if users_list == '404':
+        try:
+            await message.message.answer("Упс, кажется Ваша анкета пуста 🙈", reply_markup=kb.fill_pls_kb)
+        except Exception:
+            await message.answer("Упс, кажется Ваша анкета пуста 🙈", reply_markup=kb.fill_pls_kb)
+    else:
+        print(users_list, type(users_list))
+        users_list = eval(users_list)
+        print(users_list, type(users_list))
 
+        profiles_str = ''
+        for user_dict in users_list:
+            profiles_str += "-"*10+'\n'+\
+                f"{user_dict['name']}\n\n"+\
+                f"🧐About:\n{user_dict['about_me']}\n\n"+\
+                f"📝CV ссылка:\n{user_dict['cv_path']}\n\n"
 
-
-    # await state.update_data(target=message.text)
-    # await state.set_state(Form.target)
-    # target_msg = """Опиши в свободной форме собеседника, которого ты хочешь найти"""
-    # await message.answer(target_msg)
-
-
-@router.callback_query(F.data == 't_shirt')
-async def catalog(callback: CallbackQuery):
-    await callback.answer("Вы выбрали категорию футболок")
-    await callback.message.answer("Вы выбрали категорию футболок")
+        try:#Здесь под message скрывается коллебк - обрабатываем его
+            await message.message.answer(profiles_str, reply_markup=kb.profile_kb)
+        except Exception:#если не угадали - это обычный message
+            await message.answer(profiles_str, reply_markup=kb.profile_kb)
 
 
 

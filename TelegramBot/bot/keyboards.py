@@ -11,7 +11,7 @@ hi_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🚀",
 
 fill_pls_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="заполнить!", callback_data="start_form")]])
 
-edited_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Назад к анкете", )]])
+back_to_profile = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Назад к анкете", callback_data="set_profile")]])
 
 
 profile_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Поиск собеседника🔎", callback_data="search_interlocutor")],

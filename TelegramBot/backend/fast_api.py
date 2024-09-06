@@ -56,6 +56,60 @@ async def update_profile():
     print(str(USERS))
     return USERS
 
+@app.get("/profile/predict_for/{profile_id}")
+async def predict(profile_id: str):
+    if profile_id not in USERS.keys():
+        return status.HTTP_404_NOT_FOUND
+
+    print(str(USERS[profile_id]))
+    print("Ищем похожих для пользователя", profile_id)
+    top_dict = await get_top_5(profile_id)
+    return top_dict
+
+
+
+
+async def get_top_5(profile_id: str):
+    """Тут DS логика. Пользователи лежат в словаре USERS (profile_id: класс User)"""
+    return [
+    {
+        'id': 1,
+        'name': 'Алексей Иванов',
+        'about_me': 'Опытный разработчик на Python с 5 летним стажем.',
+        'cv_path': '/path/to/cv_alexei.pdf',
+        # 'target': 'Ищу тех, кто разбирается в карбюраторах'
+    },
+    {
+        'id': 2,
+        'name': 'Елена Петрова',
+        'about_me': 'Молодой и перспективный дизайнер UI/UX.',
+        'cv_path': '/path/to/cv_elena.pdf',
+        # 'target': 'Ведущих дизайнеров'
+    },
+    {
+        'id': 3,
+        'name': 'Райн Гослинг',
+        'about_me': 'Специалист по технике с опытом работы в крупных компаниях.',
+        'cv_path': '/path/to/cv_rain.pdf',
+        # 'target': 'Людей кто поможет мигрировать с Notion'
+    },
+    {
+        'id': 4,
+        'name': 'Ольга Васильева',
+        'about_me': 'Опытный аналитик данных с навыками машинного обучения.',
+        'cv_path': '/path/to/cv_olga.pdf',
+        # 'target': 'Хочу переехать в ml. Ищу ml-щиков'
+    },
+    {
+        'id': 5,
+        'name': 'Дмитрий Михайлов',
+        'about_me': 'Молодой и перспективный разработчик мобильных приложений.',
+        'cv_path': '/path/to/cv_dmitriy.pdf',
+        # 'target': 'Ищу людей с фамилией Михайлов'
+    }
+]
+
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host='127.0.0.1', port=8001)
