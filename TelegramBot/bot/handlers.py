@@ -316,8 +316,8 @@ async def edit_name(callback: CallbackQuery, state: FSMContext):
     # await save_message_id(callback, callback)
     await delete_all_messages(callback, callback)
 
-    await callback.message.answer("""Изменить описание собеседника:""")
-    sent_message = await state.set_state(Editing.edit_target)
+    await state.set_state(Editing.edit_target)
+    sent_message = await callback.message.answer("""Изменить описание собеседника:""")
     await save_message_id(sent_message, callback)
 
 
