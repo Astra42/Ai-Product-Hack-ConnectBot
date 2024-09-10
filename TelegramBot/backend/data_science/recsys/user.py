@@ -1,5 +1,6 @@
 class User:
-    def __init__(self, id: str, name: str = None, about_me: str = None, cv_path: str = None, target: str = None):
+    def __init__(self, id: str, name: str = None, about_me: str = None,
+                 cv_path: str = None, target: str = None):
         self.id = id
         self.name = name
         self.about_me = about_me

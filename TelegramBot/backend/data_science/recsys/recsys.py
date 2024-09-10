@@ -85,7 +85,7 @@ class RecSys:
         # Получаем двумерный тензор [[..., ..., ]]
         score = self.__get_distance(current_form, other_forms)[0]
 
-        values, indices = torch.topk(score, k=min(5, score.shape[0]))
+        values, indices = torch.topk(score, k=score.shape[0])#min(5, score.shape[0])
 
         return [{"name": db[list_indexes_users[idx]].name, "about_me": db[list_indexes_users[idx]].about_me, "cv_path": db[list_indexes_users[idx]].cv_path} for idx in indices]
 
