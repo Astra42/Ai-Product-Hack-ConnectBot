@@ -1,4 +1,5 @@
 import base64
+import os
 from typing import Any, Dict
 
 import requests
@@ -15,7 +16,7 @@ def extract_username(github_url: str) -> str:
     """
     github_url = github_url.split("?")[0]  # убираем параметры запроса
     github_url = github_url.rstrip("/")
-    username = github_url.split("/")[-1]
+    username = os.path.basename(github_url)
     return username
 
 
@@ -35,7 +36,7 @@ def get_readme(username: str, repo_name: str, headers: Dict[str, str]) -> str:
         readme_content = base64.b64decode(readme_data["content"]).decode("utf-8")
         return readme_content
     else:
-        return "no README found"
+        return ""
 
 
 def get_data(github_url: str) -> Dict[str, Any]:
@@ -44,6 +45,16 @@ def get_data(github_url: str) -> Dict[str, Any]:
 
     :param github_url: Ссылка на профиль пользователя GitHub.
     :return: Словарь с данными о пользователе и его репозиториях. Включает логин, био и информацию по каждому репозиторию.
+    {
+        "github_username": str,
+        "github_bio": str,
+        "github_link": github_url,
+        "github_repos": [
+            {"name": str1, "description": str1, "language": str1, "readme": str1, "link": str1},
+            {"name": str2, "description": str2, "language": str2, "readme": str2, "link": str2},
+            ...
+        ]
+    }
     """
     username = extract_username(github_url)
 
@@ -73,7 +84,7 @@ def get_data(github_url: str) -> Dict[str, Any]:
     data = {
         "github_username": user_data["login"],
         # "github_name": user_data.get("name", ""),
-        "github_bio": user_data.get("bio", ""),
+        "github_bio": user_data.get("bio", "").replace("\r", "").replace("\n", ""),
         "github_link": github_url,
         # "github_location": user_data.get("location", ""),
         # "github_number_of_public_repos": user_data["public_repos"],

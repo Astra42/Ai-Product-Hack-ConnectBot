@@ -134,6 +134,17 @@ def get_data(link: str) -> Optional[Dict[str, any]]:
 
     :param link: Ссылка на резюме.
     :return: Словарь с данными резюме или None в случае ошибки.
+    {
+        "position": str,
+        "age": str,
+        "gender": str,
+        "job_search_status": str,
+        "about": str,
+        "jobs": [str1, str2, ...],
+        "tags": [str1, str2, ...],
+        "eduacation": [str1, str2, ...],
+        "link": str
+    }
     """
     try:
         data = requests.get(link, headers={"User-Agent": "User-Agent"})
