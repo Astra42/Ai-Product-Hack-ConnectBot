@@ -12,11 +12,9 @@ from data_science.recsys.user import User
 
 app = FastAPI()
 
-
-
 USERS = { 
     "1": User(1, "Боб", "Я люблю Data Science, люблю чай и бананы. Меня зовут Ярик, хочу стать ML инженером", '1234', "Ищу человека, который любит банановый сок, чай с ромашкой и работает в СБЕРе"),
-    "2": User(2, "Макс", "Я люблю DS, увлекаюсь машинным обучением. Ем бананы и пью чай с ромашкой. Развиваюсь в NLP работаю в Сбере. ", "12345", "Ищу людей с именем Ярик. Или тех кто шарит за Ml, NLP"),
+    "7": User(7, "Макс", "Я люблю DS, увлекаюсь машинным обучением. Ем бананы и пью чай с ромашкой. Развиваюсь в NLP работаю в Сбере. ", "12345", "Ищу людей с именем Ярик. Или тех кто шарит за Ml, NLP"),
     "3": User(3, "Алиса", "Увлекаюсь литературой про разведение Арбузов дома. По вечерам читаю про способы обёртки Ml решений. Работаю backend-разрабом на Java в Сбере", "12345", "Ищу людей кто шарит за ML и арбузы любит")
 }  # id:User
 
@@ -82,6 +80,22 @@ async def predict(profile_id: str,
         print("Запрошен несуществующий индекс")
         return status.HTTP_404_NOT_FOUND
 
+
+
+@app.get("/profile/predict_for/{profile_id}/implement")
+async def implement(profile_id: str):
+    print(RECOMENDATIONS)
+    if profile_id not in RECOMENDATIONS.keys():
+        return status.HTTP_404_NOT_FOUND
+    
+    print(f"\n\n Вызова метода get_implementation в end_point с параметром {profile_id} \n\n")
+    result = await get_implementation(profile_id)
+
+    result = str(result)
+
+    return result
+
+
 @app.get("/profile/predict_for/{profile_id}/rec_cnt")
 async def predict(profile_id: str):
     print(RECOMENDATIONS)
@@ -106,43 +120,11 @@ async def get_top_all(profile_id: str):
     """Тут DS логика. Пользователи лежат в словаре USERS (profile_id: класс User)"""
     return recsys.get_score_by_forms(USERS, profile_id)
 
-#     return [
-#     {
-#         'id': 1,
-#         'name': 'Алексей Иванов',
-#         'about_me': 'Опытный разработчик на Python с 5 летним стажем.',
-#         # 'cv_path': '/path/to/cv_alexei.pdf',
-#         # 'target': 'Ищу тех, кто разбирается в карбюраторах'
-#     },
-#     {
-#         'id': 2,
-#         'name': 'Елена Петрова',
-#         'about_me': 'Молодой и перспективный дизайнер UI/UX.',
-#         # 'cv_path': '/path/to/cv_elena.pdf',
-#         # 'target': 'Ведущих дизайнеров'
-#     },
-#     {
-#         'id': 3,
-#         'name': 'Райн Гослинг',
-#         'about_me': 'Специалист по технике с опытом работы в крупных компаниях.',
-#         # 'cv_path': '/path/to/cv_rain.pdf',
-#         # 'target': 'Людей кто поможет мигрировать с Notion'
-#     },
-#     {
-#         'id': 4,
-#         'name': 'Ольга Васильева',
-#         'about_me': 'Опытный аналитик данных с навыками машинного обучения.',
-#         # 'cv_path': '/path/to/cv_olga.pdf',
-#         # 'target': 'Хочу переехать в ml. Ищу ml-щиков'
-#     },
-#     {
-#         'id': 5,
-#         'name': 'Дмитрий Михайлов',
-#         'about_me': 'Молодой и перспективный разработчик мобильных приложений.',
-#         # 'cv_path': '/path/to/cv_dmitriy.pdf',
-#         # 'target': 'Ищу людей с фамилией Михайлов'
-#     }
-# ]
+
+async def get_implementation(profile_id: str, n_gramm_split:int = 3):
+    print("\n\nВызываем метод get_implementation\n\n")
+
+    return recsys.get_implementation(RECOMENDATIONS[profile_id], USERS, profile_id, n_gramm_split)
 
 if __name__ == "__main__":
     uvicorn.run(app, host='127.0.0.1', port=8005)
