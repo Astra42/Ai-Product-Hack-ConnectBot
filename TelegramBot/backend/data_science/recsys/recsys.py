@@ -108,7 +108,7 @@ class RecSys:
         # Векторизуем остальных юзеров
         other_forms = self.model.vectorize([db[key].about_me for key in db.keys()])
         list_indexes_users = list(db.keys())
-
+        
         # Получаем двумерный тензор [[..., ..., ]]
         score = self.__get_distance(current_form, other_forms)[0]
 
