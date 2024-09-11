@@ -1,4 +1,10 @@
-import os.path
+import os
+import sys
+
+# /Ai-Product-Hack-ConnectBot/TelegramBot/bot/handlers.py -> /Ai-Product-Hack-ConnectBot/
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+from TelegramBot.bot.network import Network 
+
 
 from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery
@@ -6,11 +12,14 @@ from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
-import aiohttp #ассинх аналог requests
+import aiohttp # ассинх аналог requests
 import keyboards as kb
 
 import asyncio
 from typing import Union, Optional, List, Tuple
+
+
+
 
 router = Router()
 
@@ -93,71 +102,8 @@ async def save_message_id(
 # DELETE_ALL__/ 
 
 
-# \__NETWORK_REQUEST
-
-async def update_data(profile_id, data_dict={}):
-    async with aiohttp.ClientSession() as session:
-        async with session.post(f"http://localhost:8005/profile/{profile_id}",
-                               json=data_dict) as response:
-            if response.status == 200:
-                print("Данные обновлены успешно!")
-            else:
-                print(f"Ошибка при отправке данных, статус: {response.status}")
-
-
-async def load_img(profile_id, image):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(image.file_path) as response:
-            image_data = await response.read()
-            async with session.post(f"http://localhost:8005/profile/{profile_id}/load_img", data=image_data) as response:
-                if response.status == 200:
-                    print("Данные обновлены успешно!")
-                else:
-                    print(f"Ошибка при отправке данных, статус: {response.status}")
-
-async def get_specific_profile(profile_id):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"http://localhost:8005/profile/{profile_id}") as response:
-            if response.status == 200:
-                return await response.text()
-            else:
-                print(f"Ошибка при получении профиля, статус: {response.status}")
-                return None
-
-
-async def get_recommendation(profile_id, rec_num=0, refresh=True): #-> List[dict]
-    #rec_num - индекс рекомендации в списке на беке
-    async with aiohttp.ClientSession() as session:
-        request = f"http://localhost:8005/profile/predict_for/{profile_id}/?rec_num={rec_num}&refresh={refresh}"
-        async with session.get(request) as response:
-            if response.status == 200:
-                return await response.text()
-            else:
-                print(f"Ошибка при получении предсказания, статус: {response.status}")
-                return None
-async def get_recommendation_cnt(profile_id):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"http://localhost:8005/profile/predict_for/{profile_id}/rec_cnt") as response:
-            if response.status == 200:
-                return await response.text()
-            else:
-                print(f"Ошибка при получении профиля, статус: {response.status}")
-                return None
-
-
-async def get_inplementation(profile_id, inplement_num=0, refresh=True):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"http://localhost:8005/profile/predict_for/{profile_id}/implement/?inplement_num={inplement_num}&refresh={refresh}") as response:
-            if response.status == 200:
-                return await response.text()
-            else:
-                print(f"Ошибка при получении профиля, статус: {response.status}")
-                return None
-# NETWORK_REQUEST__/
-
-
 # \__RECOMMENDS
-#Хранение указателя на порядковый номер просматриваемой анкеты
+# Хранение указателя на порядковый номер просматриваемой анкеты
 user_pointers = {} # dict[user: number_of_recomendred_profile]
 user_pointers_lock = asyncio.Lock()
 # __RECOMMENDS/
@@ -190,21 +136,31 @@ async def catalog(message: Message, state: FSMContext):
     if (user_id not in user_pointers.keys() or text.startswith(('search_', '/search_'))) and text != '🚀Далее':
         print('Ни разу не был')
 
-        recommendation = await get_recommendation(user_id)
-        n_gramms = eval(await get_inplementation(user_id))
+        recommendation = await Network.get_recommendation(user_id)
+        
+        
+        text_get_inplementation = await Network.get_inplementation(user_id)
+        print(f'{text_get_inplementation=}')
+        
+        try:
+            n_gramms = eval(text_get_inplementation)
+        except Exception as e:
+            print(f'bot:catalog {e=}')
+            n_gramms = []
+
         print('n_gramms', n_gramms)
 
         if recommendation == '404':
             await answer_by_msg_or_clb(message, "Упс, кажется, Ваша анкета пуста 🙈", reply_markup=kb.fill_pls_kb)
         async with user_pointers_lock:
-            user_pointers[user_id] = 1#Указатель на первой анкете
+            user_pointers[user_id] = 1 # Указатель на первой анкете
 
         content = await get_profile_str(1, eval(recommendation), n_gramms=n_gramms)
         await answer_by_msg_or_clb(message, content, reply_markup=kb.get_watch_next_kb_buttons()) # kb.get_watch_next_kb(1)
 
     # Переключается по анкетам
     else:
-        rec_cnt_row = await get_recommendation_cnt(user_id)#Получаем количество рекомендаций на сервере
+        rec_cnt_row = await Network.get_recommendation_cnt(user_id) # Получаем количество рекомендаций на сервере
         rec_cnt = int(eval(rec_cnt_row.replace("len=", "")))
         print(rec_cnt)
         print('Был')
@@ -222,8 +178,8 @@ async def catalog(message: Message, state: FSMContext):
             async with user_pointers_lock:
                 user_pointers[user_id] = serial_rec_num
 
-            recommendation = await get_recommendation(user_id, rec_num=user_pointers[user_id] - 1, refresh=False)
-            n_gramms = eval(await get_inplementation(user_id, inplement_num=user_pointers[user_id] - 1, refresh=False))
+            recommendation = await Network.get_recommendation(user_id, rec_num=user_pointers[user_id] - 1, refresh=False)
+            n_gramms = eval(await Network.get_inplementation(user_id, inplement_num=user_pointers[user_id] - 1, refresh=False))
             print('n_gramms', n_gramms)
 
             content = await get_profile_str(user_pointers[user_id], eval(recommendation), n_gramms=n_gramms)
@@ -241,7 +197,7 @@ async def ask_confirmation(message: Message, state: FSMContext):
     # await delete_all_messages(message.bot, message.from_user.id)    
 
     user_id = message.from_user.id
-    user_dict = await get_specific_profile(user_id)
+    user_dict = await Network.get_specific_profile(user_id)
     if user_dict == '404':
         sent_message = await message.answer("Упс, кажется Ваша анкета пуста 🙈", reply_markup=kb.fill_pls_kb)
     else:
@@ -288,7 +244,7 @@ async def greeting(callback: CallbackQuery, state: FSMContext):
 
     # -------------BD: create user ------------
     user_id = callback.message.from_user.id
-    await update_data(user_id)
+    await Network.update_data(user_id)
     # -----------------------------------------
     await state.set_state(Form.name)
     meet_msg = """Давай познакомимся, как тебя зовут?"""
@@ -316,7 +272,7 @@ async def edit_name(message: Message, state: FSMContext):
 
     # -------------BD: fill name ------------
     user_id = message.from_user.id
-    await update_data(user_id, {"name": message.text})
+    await Network.update_data(user_id, {"name": message.text})
     # -----------------------------------------
     # await message.answer(f"""Новое имя: {callback.message.text}""")
 
@@ -332,7 +288,7 @@ async def who_are_you(message: Message, state: FSMContext):
 
     # -------------BD: fill name ------------
     user_id = message.from_user.id
-    await update_data(user_id, {"name": message.text})
+    await Network.update_data(user_id, {"name": message.text})
     # -----------------------------------------
 
     await state.update_data(name=message.text)
@@ -359,7 +315,7 @@ async def edit_name(message: Message, state: FSMContext):
     await state.set_state(None)
     # -------------BD: fill about_me ------------
     user_id = message.from_user.id
-    await update_data(user_id, {"about_me": message.text})
+    await Network.update_data(user_id, {"about_me": message.text})
     # -----------------------------------------
     sent_message = await message.answer('Супер! Записано! ✏', reply_markup=kb.back_to_profile)
     await save_message_id(sent_message, message)
@@ -374,7 +330,7 @@ async def get_cv(message: Message, state: FSMContext):
 
     # -------------BD: fill about_me ------------
     user_id = message.from_user.id
-    await update_data(user_id, {"about_me": message.text})
+    await Network.update_data(user_id, {"about_me": message.text})
     # -----------------------------------------
     await state.update_data(about_me=message.text)
     await state.set_state(Form.cv_path)
@@ -400,7 +356,7 @@ async def edit_name(message: Message, state: FSMContext):
     # -------------BD: fill about_me ------------
     user_id = message.from_user.id
     await state.set_state(None)
-    await update_data(user_id, {"cv_path": message.text})
+    await Network.update_data(user_id, {"cv_path": message.text})
     # -----------------------------------------
     sent_message = await message.answer('Супер! Записано! ✏', reply_markup=kb.back_to_profile)
     await save_message_id(sent_message, message)
@@ -414,7 +370,7 @@ async def get_target(message: Message, state: FSMContext):
 
     # -------------BD: fill cv ------------
     user_id = message.from_user.id
-    await update_data(user_id, {"cv_path": message.text})
+    await Network.update_data(user_id, {"cv_path": message.text})
     # -----------------------------------------
     await state.update_data(cv_path=message.text)
     await state.set_state(None)
@@ -442,7 +398,7 @@ async def edit_name(message: Message, state: FSMContext):
     await state.set_state(None)
     # -------------BD: fill таргет ------------
     user_id = message.from_user.id
-    await update_data(user_id, {"target": message.text})
+    await Network.update_data(user_id, {"target": message.text})
     # -----------------------------------------
     sent_message = await message.answer('Супер! Записано!✏', reply_markup=kb.back_to_profile_target)
     await save_message_id(sent_message, message)
@@ -455,7 +411,7 @@ async def set_target(message: Message, state: FSMContext):
     # -------------BD: fill target ------------
     if message.text != "/set_profile":
         user_id = message.from_user.id
-        await update_data(user_id, {"target": message.text})
+        await Network.update_data(user_id, {"target": message.text})
     # -----------------------------------------
     await state.update_data(target=message.text)
     await state.set_state(None)
