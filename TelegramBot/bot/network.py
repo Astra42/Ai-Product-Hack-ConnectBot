@@ -13,8 +13,10 @@ class Network:
                                 json=data_dict) as response:
                 if response.status == 200:
                     print("Данные обновлены успешно!")
+                    return True
                 else:
                     print(f"Ошибка при отправке данных, статус: {response.status}")
+                    return False
 
     @staticmethod
     async def load_img(profile_id, image):

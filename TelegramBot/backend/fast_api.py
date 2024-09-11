@@ -54,7 +54,7 @@ async def update_profile(profile_id: str, update_data: dict):
         if profile_id not in USERS.keys():
             USERS[profile_id] = User(profile_id)
         for attr, value in update_data.items():
-            if attr in ['id', 'name', 'about_me', 'cv_path', 'target']:
+            if attr in ['id', 'name', 'about_me', 'cv_path', 'target', 'hh_cv']:
                 setattr(USERS[profile_id], attr, value)
         return profile_id
 
