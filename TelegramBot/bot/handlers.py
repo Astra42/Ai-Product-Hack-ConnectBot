@@ -10,7 +10,7 @@ import aiohttp #ассинх аналог requests
 import keyboards as kb
 
 import asyncio
-from typing import Union, Optional
+from typing import Union, Optional, List, Tuple
 
 router = Router()
 
@@ -143,6 +143,16 @@ async def get_recommendation_cnt(profile_id):
             else:
                 print(f"Ошибка при получении профиля, статус: {response.status}")
                 return None
+
+
+async def get_inplementation(profile_id, inplement_num=0, refresh=True):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"http://localhost:8005/profile/predict_for/{profile_id}/implement/?inplement_num={inplement_num}&refresh={refresh}") as response:
+            if response.status == 200:
+                return await response.text()
+            else:
+                print(f"Ошибка при получении профиля, статус: {response.status}")
+                return None
 # NETWORK_REQUEST__/
 
 
@@ -152,6 +162,13 @@ user_pointers = {} # dict[user: number_of_recomendred_profile]
 user_pointers_lock = asyncio.Lock()
 # __RECOMMENDS/
 
+async def apply_n_gramms(about_me:str, n_gramms: List[List]):
+    last_pairs = ''
+    for start, end in n_gramms:
+        if f"{start}-{end}" not in last_pairs:
+            about_me = about_me[:start] + "<b>" + about_me[start:end]+ "</b>" + about_me[end:]
+            last_pairs += f", {start}-{end}"
+    return about_me
 
 
 @router.message(Command('search_interlocutor_from_menu'))
@@ -172,13 +189,17 @@ async def catalog(message: Message, state: FSMContext):
     text = message.text if isinstance(message, Message) else message.data
     if (user_id not in user_pointers.keys() or text.startswith(('search_', '/search_'))) and text != '🚀Далее':
         print('Ни разу не был')
+
         recommendation = await get_recommendation(user_id)
+        n_gramms = eval(await get_inplementation(user_id))
+        print('n_gramms', n_gramms)
+
         if recommendation == '404':
             await answer_by_msg_or_clb(message, "Упс, кажется, Ваша анкета пуста 🙈", reply_markup=kb.fill_pls_kb)
         async with user_pointers_lock:
             user_pointers[user_id] = 1#Указатель на первой анкете
 
-        content = await get_profile_str(1, eval(recommendation))
+        content = await get_profile_str(1, eval(recommendation), n_gramms=n_gramms)
         await answer_by_msg_or_clb(message, content, reply_markup=kb.get_watch_next_kb_buttons()) # kb.get_watch_next_kb(1)
 
     # Переключается по анкетам
@@ -189,7 +210,7 @@ async def catalog(message: Message, state: FSMContext):
         print('Был')
         if text != '🚀Далее':
             text = message.text if isinstance(message, Message) else message.data
-            serial_rec_num = int(text.replace('rec_', '').replace('/', ''))#кейс если мы пришли через
+            serial_rec_num = int(text.replace('rec_', '').replace('-', '\-'),)#кейс если мы пришли через
         else:
             serial_rec_num = user_pointers[user_id] + 1
 
@@ -202,8 +223,10 @@ async def catalog(message: Message, state: FSMContext):
                 user_pointers[user_id] = serial_rec_num
 
             recommendation = await get_recommendation(user_id, rec_num=user_pointers[user_id] - 1, refresh=False)
+            n_gramms = eval(await get_inplementation(user_id, inplement_num=user_pointers[user_id] - 1, refresh=False))
+            print('n_gramms', n_gramms)
 
-            content = await get_profile_str(user_pointers[user_id], eval(recommendation))
+            content = await get_profile_str(user_pointers[user_id], eval(recommendation), n_gramms=n_gramms)
             await answer_by_msg_or_clb(
                 message, content,
                 reply_markup=kb.get_watch_next_kb_buttons())# kb.get_watch_next_kb(num=user_pointers[user_id])
@@ -299,6 +322,7 @@ async def edit_name(message: Message, state: FSMContext):
 
     sent_message = await message.answer('Супер! Записано! ✏', reply_markup=kb.back_to_profile)
     await save_message_id(sent_message, message)
+
 
 #------------------------------------------- 2 - about ----------------
 @router.message(Form.name)
@@ -437,18 +461,18 @@ async def set_target(message: Message, state: FSMContext):
     await state.set_state(None)
     await ask_confirmation(message, state)
 
-async def get_profile_str(rec_num, user_dict: dict):
+async def get_profile_str(rec_num, user_dict: dict, n_gramms: list):
     return "-" * 10 + '\n' + \
     f"/{rec_num}" + '\n'\
     f"{user_dict['name']}\n\n" + \
-    f"🧐 About:\n{user_dict['about_me']}\n\n" + \
+    f"🧐 About:\n{await apply_n_gramms(user_dict['about_me'], n_gramms)}\n\n" + \
     f"📝 CV ссылка:\n{user_dict['cv_path']}\n\n"
 
-async def answer_by_msg_or_clb(message: Optional[Union[Message, CallbackQuery]], content:str,  reply_markup=None):
+async def answer_by_msg_or_clb(message: Optional[Union[Message, CallbackQuery]],content:str,  reply_markup=None):
     if isinstance(message, CallbackQuery):
-        return await message.message.answer(content, reply_markup=reply_markup)
+        return await message.message.answer(content, reply_markup=reply_markup, parse_mode="html")
     else:
-        return await message.answer(content, reply_markup=reply_markup)
+        return await message.answer(content, reply_markup=reply_markup, parse_mode="html")
 
 
 #--------------------ФОТО------------------

@@ -154,6 +154,7 @@ class RecSys:
         for user in RECOMENDATIONS:
             # Получаем текст "о себе" других пользователей
             user_about_me = user['about_me']
+            print('user_about_me', user_about_me)
 
             # очищаем текст "о себе" у других пользователей
             clear_user_about_me = " ".join([word for word in user_about_me.split() if word.lower() not in self.stop_words])

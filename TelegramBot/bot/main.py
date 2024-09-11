@@ -5,7 +5,7 @@ from aiogram.types import BotCommandScopeDefault
 from handlers import router
 from keyboards import navigation_kb
 
-with open("Ai-Product-Hack-ConnectBot\\TelegramBot\\bot\\bot_token.txt", 'r') as f:
+with open("bot_token.txt", 'r') as f:
     TOKEN = f.read()
     print(f'{TOKEN=}')
 
