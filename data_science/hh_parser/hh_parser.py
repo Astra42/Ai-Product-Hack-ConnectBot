@@ -128,7 +128,7 @@ def get_single_text_block(s) -> str:
     return s.text if s else ""
 
 
-def get_data(link: str) -> Optional[Dict[str, any]]:
+def get_data_from_hh_link(link: str) -> Optional[Dict[str, any]]:
     """
     Парсит данные резюме по ссылке.
 
@@ -179,7 +179,7 @@ def get_data(link: str) -> Optional[Dict[str, any]]:
         }
         return resume
     except Exception as e:
-        print(f"Error fetching resume data: {e}")
+        print(f"Error fetching resume data: {e=}")
         return None
 
 
@@ -194,7 +194,7 @@ def parse_resumes(search_text: str, max_records: int) -> None:
     resume_results = []
     count = 0
     for link in tqdm(get_links(search_text, max_records)):
-        resume = get_data(link)
+        resume = get_data_from_hh_link(link)
         if resume:
             resume_results.append(resume)
         time.sleep(1)
@@ -203,7 +203,7 @@ def parse_resumes(search_text: str, max_records: int) -> None:
             break
 
     with open(
-        f"./data/{(search_text).replace(" ", "_")}_resumes.json", "w", encoding="utf-8"
+        f"./data/{(search_text).replace(' ', '_')}_resumes.json", "w", encoding="utf-8"
     ) as f:
         json.dump(resume_results, f, ensure_ascii=False, indent=4)
 

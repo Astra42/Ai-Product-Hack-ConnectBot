@@ -7,7 +7,8 @@ from keyboards import navigation_kb
 
 with open("bot_token.txt", 'r') as f:
     TOKEN = f.read()
-    print(TOKEN)
+    print(f'{TOKEN=}')
+
 
 all_media_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'all_media')
 
