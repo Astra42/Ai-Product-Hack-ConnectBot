@@ -146,7 +146,7 @@ async def catalog(message: Message, state: FSMContext):
         print('Ни разу не был')
 
         recommendation = await Network.get_recommendation(user_id)
-        
+        print(f'bot:catalog:{recommendation=}')
         
         text_get_inplementation = await Network.get_inplementation(user_id)
         print(f'{text_get_inplementation=}')
@@ -255,6 +255,7 @@ async def start(message: Message):
 Здесь ты можешь поделиться своими интересами 🧙‍, увлечениями 🤸‍
 описать какого собседника ты хочешь найти 🤠
 """
+    print(f"bot:start:{message.bot.id=}")
     sent_message = await message.answer(hi_str, reply_markup=kb.hi_kb)
     await save_message_id(sent_message, message)
     

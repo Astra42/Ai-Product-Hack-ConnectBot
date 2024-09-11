@@ -15,7 +15,32 @@ class User:
         self.cv_path = cv_path
         self.target = target
         self.hh_cv = hh_cv
+        
+        
+        # if self.name is None: 
+        #     self.name = " "
+        # if self.about_me is None:
+        #     self.about_me = " "
+        if self.cv_path is None:
+            self.cv_path = " "
+        # if self.target is None:
+        #     self.target = " "
+        if self.hh_cv is None:
+            self.hh_cv = {
+                "position": "",
+                "age": "",
+                "gender": "",
+                "job_search_status": "",
+                "about": "",
+                "jobs": [],
+                "tags": [],
+                "eduacation": [],
+                "link": ""
+            }
+        
+
         """
+        https://hh.ru/resume/46d55ec600080f27eb0039ed1f794c6a344968?query=DS&searchRid=172607926475088847a46e5d0a22c612&hhtmFrom=resume_search_result
         {
             "position": str,
             "age": str,

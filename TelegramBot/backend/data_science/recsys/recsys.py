@@ -6,6 +6,7 @@ from nltk import ngrams
 from typing import List, Union, Optional
 import re
 
+from pprint import pprint
 
 nltk.download('stopwords')
 
@@ -94,7 +95,10 @@ class RecSys:
         db = USERS.copy()
 
         # удаление людей у которых есть незаполненные поля
+        
+        pprint(f'recsys:get_score_by_forms:before_delete:{db=}')
         db = {idx: db[idx] for idx in db.keys() if all(db[idx].make_attrs_like_dict().values())}
+        pprint(f'recsys:get_score_by_forms:after_delete:{db=}')
 
 
         # Делаем предобработку для поля "hh_cv"
