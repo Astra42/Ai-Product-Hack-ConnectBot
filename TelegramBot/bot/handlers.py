@@ -1,4 +1,13 @@
-import os.path
+import os
+import sys
+
+# /Ai-Product-Hack-ConnectBot/TelegramBot/bot/handlers.py -> /Ai-Product-Hack-ConnectBot/
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+from TelegramBot.bot.network import Network 
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+from data_science.hh_parser import hh_parser
+
 
 from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery
@@ -6,11 +15,14 @@ from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
-import aiohttp #ассинх аналог requests
+import aiohttp # ассинх аналог requests
 import keyboards as kb
 
 import asyncio
 from typing import Union, Optional, List, Tuple
+
+
+
 
 router = Router()
 
@@ -61,8 +73,10 @@ async def delete_all_messages(
 
     print(f'delete_all_messages:{user_id=}')
     async with user_messages_lock:  # Используем блокировку при доступе к user_messages
-        print(f'\delete_all_messages: {type(message_or_callback)=} | {user_messages[user_id]=}')
-
+        try:
+            print(f'\delete_all_messages: {type(message_or_callback)=} | {user_messages[user_id]=}')
+        except Exception as e:
+            print(f"bot:delete_all_messages:{user_id=}\n{e=}")
         if user_id in user_messages:
             for message_id in user_messages[user_id]:
                 try:
@@ -70,7 +84,11 @@ async def delete_all_messages(
                 except:
                     pass
             user_messages[user_id] = []
-        print(f'/delete_all_messages: {type(message_or_callback)=} | {user_messages[user_id]=} {user_id=}')
+
+        try:
+            print(f'\delete_all_messages: {type(message_or_callback)=} | {user_messages[user_id]=}')
+        except Exception as e:
+            print(f"bot:delete_all_messages:{user_id=}\n{e=}")
 
 async def save_message_id(
         message_or_callback: Union[Message, CallbackQuery],
@@ -93,76 +111,13 @@ async def save_message_id(
 # DELETE_ALL__/ 
 
 
-# \__NETWORK_REQUEST
-
-async def update_data(profile_id, data_dict={}):
-    async with aiohttp.ClientSession() as session:
-        async with session.post(f"http://localhost:8005/profile/{profile_id}",
-                               json=data_dict) as response:
-            if response.status == 200:
-                print("Данные обновлены успешно!")
-            else:
-                print(f"Ошибка при отправке данных, статус: {response.status}")
-
-
-async def load_img(profile_id, image):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(image.file_path) as response:
-            image_data = await response.read()
-            async with session.post(f"http://localhost:8005/profile/{profile_id}/load_img", data=image_data) as response:
-                if response.status == 200:
-                    print("Данные обновлены успешно!")
-                else:
-                    print(f"Ошибка при отправке данных, статус: {response.status}")
-
-async def get_specific_profile(profile_id):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"http://localhost:8005/profile/{profile_id}") as response:
-            if response.status == 200:
-                return await response.text()
-            else:
-                print(f"Ошибка при получении профиля, статус: {response.status}")
-                return None
-
-
-async def get_recommendation(profile_id, rec_num=0, refresh=True): #-> List[dict]
-    #rec_num - индекс рекомендации в списке на беке
-    async with aiohttp.ClientSession() as session:
-        request = f"http://localhost:8005/profile/predict_for/{profile_id}/?rec_num={rec_num}&refresh={refresh}"
-        async with session.get(request) as response:
-            if response.status == 200:
-                return await response.text()
-            else:
-                print(f"Ошибка при получении предсказания, статус: {response.status}")
-                return None
-async def get_recommendation_cnt(profile_id):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"http://localhost:8005/profile/predict_for/{profile_id}/rec_cnt") as response:
-            if response.status == 200:
-                return await response.text()
-            else:
-                print(f"Ошибка при получении профиля, статус: {response.status}")
-                return None
-
-
-async def get_inplementation(profile_id, inplement_num=0, refresh=True):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"http://localhost:8005/profile/predict_for/{profile_id}/implement/?inplement_num={inplement_num}&refresh={refresh}") as response:
-            if response.status == 200:
-                return await response.text()
-            else:
-                print(f"Ошибка при получении профиля, статус: {response.status}")
-                return None
-# NETWORK_REQUEST__/
-
-
 # \__RECOMMENDS
-#Хранение указателя на порядковый номер просматриваемой анкеты
+# Хранение указателя на порядковый номер просматриваемой анкеты
 user_pointers = {} # dict[user: number_of_recomendred_profile]
 user_pointers_lock = asyncio.Lock()
 # __RECOMMENDS/
 
-async def apply_n_gramms(about_me:str, n_gramms: List[List]):
+async def apply_n_gramms(about_me : str, n_gramms: List[List]):
     last_pairs = ''
     for start, end in n_gramms:
         if f"{start}-{end}" not in last_pairs:
@@ -190,21 +145,31 @@ async def catalog(message: Message, state: FSMContext):
     if (user_id not in user_pointers.keys() or text.startswith(('search_', '/search_'))) and text != '🚀Далее':
         print('Ни разу не был')
 
-        recommendation = await get_recommendation(user_id)
-        n_gramms = eval(await get_inplementation(user_id))
+        recommendation = await Network.get_recommendation(user_id)
+        
+        
+        text_get_inplementation = await Network.get_inplementation(user_id)
+        print(f'{text_get_inplementation=}')
+        
+        try:
+            n_gramms = eval(text_get_inplementation)
+        except Exception as e:
+            print(f'bot:catalog {e=}')
+            n_gramms = []
+
         print('n_gramms', n_gramms)
 
         if recommendation == '404':
             await answer_by_msg_or_clb(message, "Упс, кажется, Ваша анкета пуста 🙈", reply_markup=kb.fill_pls_kb)
         async with user_pointers_lock:
-            user_pointers[user_id] = 1#Указатель на первой анкете
+            user_pointers[user_id] = 1 # Указатель на первой анкете
 
         content = await get_profile_str(1, eval(recommendation), n_gramms=n_gramms)
         await answer_by_msg_or_clb(message, content, reply_markup=kb.get_watch_next_kb_buttons()) # kb.get_watch_next_kb(1)
 
     # Переключается по анкетам
     else:
-        rec_cnt_row = await get_recommendation_cnt(user_id)#Получаем количество рекомендаций на сервере
+        rec_cnt_row = await Network.get_recommendation_cnt(user_id) # Получаем количество рекомендаций на сервере
         rec_cnt = int(eval(rec_cnt_row.replace("len=", "")))
         print(rec_cnt)
         print('Был')
@@ -222,8 +187,8 @@ async def catalog(message: Message, state: FSMContext):
             async with user_pointers_lock:
                 user_pointers[user_id] = serial_rec_num
 
-            recommendation = await get_recommendation(user_id, rec_num=user_pointers[user_id] - 1, refresh=False)
-            n_gramms = eval(await get_inplementation(user_id, inplement_num=user_pointers[user_id] - 1, refresh=False))
+            recommendation = await Network.get_recommendation(user_id, rec_num=user_pointers[user_id] - 1, refresh=False)
+            n_gramms = eval(await Network.get_inplementation(user_id, inplement_num=user_pointers[user_id] - 1, refresh=False))
             print('n_gramms', n_gramms)
 
             content = await get_profile_str(user_pointers[user_id], eval(recommendation), n_gramms=n_gramms)
@@ -241,7 +206,7 @@ async def ask_confirmation(message: Message, state: FSMContext):
     # await delete_all_messages(message.bot, message.from_user.id)    
 
     user_id = message.from_user.id
-    user_dict = await get_specific_profile(user_id)
+    user_dict = await Network.get_specific_profile(user_id)
     if user_dict == '404':
         sent_message = await message.answer("Упс, кажется Ваша анкета пуста 🙈", reply_markup=kb.fill_pls_kb)
     else:
@@ -252,9 +217,27 @@ async def ask_confirmation(message: Message, state: FSMContext):
         print(user_dict, type(user_dict))
         print(f'{type(user_dict)=}\n{user_dict=}')
 
-        profile_str =f"{user_dict['name']}, твоя анкета:\n\n"+\
-            f"🧐 Обо мне:\n{user_dict['about_me']}\n\n"+\
-            f"📝 CV ссылка:\n{user_dict['cv_path']}\n\n"+\
+        def pretty_cv(user_dict: dict) -> str:
+            result_cv_str = ""
+            if 'position' in user_dict['hh_cv'] and user_dict['hh_cv']['position'] != "":
+                result_cv_str += f"👤 Позиция: {user_dict['hh_cv']['position']}\n"
+
+                about_me_hh_str = f"{user_dict['hh_cv']['about'][:300]}"
+                if len(user_dict['hh_cv']['about']) > 300:
+                    about_me_hh_str += "..."
+                
+                result_cv_str += f"О себе: {about_me_hh_str}"
+
+            else:
+                result_cv_str += f"{user_dict['cv_path']}"
+
+            return result_cv_str
+
+        
+
+        profile_str =f"{user_dict['name']}, твоя анкета:\n\n" + \
+            f"🧐 Обо мне:\n{user_dict['about_me']}\n\n" + \
+            f"📝 CV ссылка:\n{pretty_cv(user_dict)}\n\n" + \
             f"🔎 Ищу:\n{user_dict['target']}"
         try: # Здесь под message скрывается коллебк - обрабатываем его
             sent_message = await message.message.answer(profile_str, reply_markup=kb.profile_kb)
@@ -270,12 +253,8 @@ async def start(message: Message):
     hi_str = """Привет! 👋
 Это бот коннектор! 🤖
 Здесь ты можешь поделиться своими интересами 🧙‍, увлечениями 🤸‍
-и описать какого собседника ты хочешь найти 🤠
+описать какого собседника ты хочешь найти 🤠
 """
-    # print(f"start:{message=}")
-    # await save_message_id(message)
-    # await delete_all_messages(message)
-
     sent_message = await message.answer(hi_str, reply_markup=kb.hi_kb)
     await save_message_id(sent_message, message)
     
@@ -288,7 +267,7 @@ async def greeting(callback: CallbackQuery, state: FSMContext):
 
     # -------------BD: create user ------------
     user_id = callback.message.from_user.id
-    await update_data(user_id)
+    await Network.update_data(user_id)
     # -----------------------------------------
     await state.set_state(Form.name)
     meet_msg = """Давай познакомимся, как тебя зовут?"""
@@ -316,11 +295,11 @@ async def edit_name(message: Message, state: FSMContext):
 
     # -------------BD: fill name ------------
     user_id = message.from_user.id
-    await update_data(user_id, {"name": message.text})
+    await Network.update_data(user_id, {"name": message.text})
     # -----------------------------------------
     # await message.answer(f"""Новое имя: {callback.message.text}""")
 
-    sent_message = await message.answer('Супер! Записано! ✏', reply_markup=kb.back_to_profile)
+    sent_message = await message.answer('Супер! 🔥 Записано! ✏', reply_markup=kb.back_to_profile)
     await save_message_id(sent_message, message)
 
 
@@ -332,12 +311,14 @@ async def who_are_you(message: Message, state: FSMContext):
 
     # -------------BD: fill name ------------
     user_id = message.from_user.id
-    await update_data(user_id, {"name": message.text})
+    await Network.update_data(user_id, {"name": message.text})
     # -----------------------------------------
 
     await state.update_data(name=message.text)
     await state.set_state(Form.about_me)
-    about_msg = """Расскажи о себе, может ты любишь пиво-смузи или управляешь банановой республикой?"""
+    about_msg = """Расскажи о себе, может ты любишь пиво-смузи или управляешь банановой республикой? 🏄‍♂️
+Так же не забудь про проффесиональные навыки! 🤓 💵 💼
+    """
     sent_message = await message.answer(about_msg)
     await save_message_id(sent_message, message)
 
@@ -359,9 +340,9 @@ async def edit_name(message: Message, state: FSMContext):
     await state.set_state(None)
     # -------------BD: fill about_me ------------
     user_id = message.from_user.id
-    await update_data(user_id, {"about_me": message.text})
+    await Network.update_data(user_id, {"about_me": message.text})
     # -----------------------------------------
-    sent_message = await message.answer('Супер! Записано! ✏', reply_markup=kb.back_to_profile)
+    sent_message = await message.answer('Супер! 🔥 Записано! ✏', reply_markup=kb.back_to_profile)
     await save_message_id(sent_message, message)
 
 
@@ -374,12 +355,16 @@ async def get_cv(message: Message, state: FSMContext):
 
     # -------------BD: fill about_me ------------
     user_id = message.from_user.id
-    await update_data(user_id, {"about_me": message.text})
+    await Network.update_data(user_id, {"about_me": message.text})
     # -----------------------------------------
     await state.update_data(about_me=message.text)
     await state.set_state(Form.cv_path)
-    cv_msg = """Супер! 
-Чтобы мы смогли получше тебя узнать, ты можешь дать нам больше подробностей"""
+    cv_msg = """Супер!  🔥
+Чтобы мы смогли получше тебя узнать, ты можешь дать нам больше подробностей, например:
+* ссылку на резюме hh.ru 
+* ссылку на github.com
+"""
+
     sent_message = await message.answer(cv_msg)
     await save_message_id(sent_message, message)
 
@@ -389,9 +374,43 @@ async def edit_name(callback: CallbackQuery, state: FSMContext):
     # await save_message_id(callback)
     await delete_all_messages(callback, callback)
     await state.set_state(Editing.edit_cv_path)
-    sent_message = await callback.message.answer("""Изменить ссылку на CV:""")
+    sent_message = await callback.message.answer("""Изменить ссылку на CV [hh.ru]:""")
     await save_message_id(sent_message, callback)
 
+
+
+async def parse_and_update_cv(cv_link: str, user_id: int) -> bool:
+    '''
+    True update cv else False 
+
+    # https://hh.ru/resume/46d55ec600080f27eb0039ed1f794c6a344968?query=DS&searchRid=172607926475088847a46e5d0a22c612&hhtmFrom=resume_search_result
+    
+    hh_resume_dict={'position': 'Junior Data Science for NLP', 'age': '26', 'gender': 'Мужчина', 'job_search_status': 'Не ищет работу', 'about': 'При необходимости легко обучаюсь.                                                                                                                При возникновении срочных заданий готов тратить максимум усилий для завершения в заданный срок.  Креативное мышление, Стремление к профессиональному развитию  Начал интересоваться машинным обучением еще на 2 курсе, когда в ВШЭ началась дисциплина ИАД (Интеллектуальный анализ данных) https://github.com/alexserg1998/IAD  Пишу диплом на тему "Система автоматического реферирования", предлагается разработка системы создания обзора научной литературы на основе методов обработки текстов методами машинного обучения.   Языковые навыки:\tEnglish (Учусь в EF для повышения уровня английского). Проф. навыки:\tPython (Pandas, numpy, scipy, sklearn, matplotlib), SQL (Выгрузка таблицы из базы данных).  Coursera: Математика и Python для анализа данных. Хобби:\tВелосипед, бег, футбол, тренажерный зал.  ', 'jobs': ['Код ревьюер DS: Основной обязанностью было проверка работ и помощь студентам в случае возникновения непонимания по материалу:)', 'Ассистент: Проверка работ у студентов, а так же помощь в проведении контрольных работ:)'], 'tags': ['Работоспособность', 'Нейронные сети', 'PyTorch', 'Pandas', 'CV', 'NLP', 'Classic ML'], 'education': ['НИУ ВШЭ МИЭМ: Информатика и вычислительная техника. GPA: 9.0 из 10 , Бакалавр'], 'link': 'https://hh.ru/resume/46d55ec600080f27eb0039ed1f794c6a344968?query=DS&searchRid=172607926475088847a46e5d0a22c612&hhtmFrom=resume_search_result'}
+    
+    '''
+    # TODO : not async !!!
+    hh_resume_dict = hh_parser.get_data_from_hh_link(link=cv_link)
+    print(f'bot:parse_and_update_cv:{hh_resume_dict=}')
+    if hh_resume_dict is not None:
+        is_success = await Network.update_data(user_id, {"hh_cv": hh_resume_dict})
+        print(f'bot:parse_and_update_cv:{is_success=}')
+        if is_success:
+            return True
+    else:
+        empty_hh_resume_dict =  {
+            "position": "",
+            "age": "",
+            "gender": "",
+            "job_search_status": "",
+            "about": "",
+            "jobs": [],
+            "tags": [],
+            "eduacation": [],
+            "link": ""
+        }
+        await Network.update_data(user_id, {"hh_cv": empty_hh_resume_dict})
+
+    return False
 
 @router.message(Editing.edit_cv_path) # Редактировать CV - переход в меню
 async def edit_name(message: Message, state: FSMContext):
@@ -399,14 +418,21 @@ async def edit_name(message: Message, state: FSMContext):
     # await delete_all_messages(message, message)
     # -------------BD: fill about_me ------------
     user_id = message.from_user.id
-    await state.set_state(None)
-    await update_data(user_id, {"cv_path": message.text})
+    await state.set_state(None)    
+
+    is_update_cv = await parse_and_update_cv(cv_link=message.text, user_id=user_id)
+    # TODO : not async !!!
+    if not is_update_cv:
+        await Network.update_data(user_id, {"cv_path": message.text})
+    
+
     # -----------------------------------------
-    sent_message = await message.answer('Супер! Записано! ✏', reply_markup=kb.back_to_profile)
+    sent_message = await message.answer('Супер! 🔥 Записано! ✏', reply_markup=kb.back_to_profile)
     await save_message_id(sent_message, message)
 
 
 #------------------------------------------- 4 Target ----------------
+
 @router.message(Form.cv_path)
 async def get_target(message: Message, state: FSMContext):
     await save_message_id(message, message)
@@ -414,18 +440,24 @@ async def get_target(message: Message, state: FSMContext):
 
     # -------------BD: fill cv ------------
     user_id = message.from_user.id
-    await update_data(user_id, {"cv_path": message.text})
+    is_update_cv = await parse_and_update_cv(cv_link=message.text, user_id=user_id)
+
+    if not is_update_cv:
+        await Network.update_data(user_id, {"cv_path": message.text})
+    
     # -----------------------------------------
     await state.update_data(cv_path=message.text)
+    
+    
     await state.set_state(None)
     await state.set_state(Form.target)
-    target_msg = """Опиши в свободной форме собеседника, которого ты хочешь найти"""
+    target_msg = """Опиши в свободной форме собеседника, которого ты хочешь найти 🔎"""
     sent_message = await message.answer(target_msg)
     await save_message_id(sent_message, message)
 
 
 
-@router.message(F.text == '✏Изменить кого ищу')
+@router.message(F.text == '✏ Изменить кого ищу')
 @router.callback_query(F.data == "edit_target")  # Редактировать таргет - вопрос
 async def edit_name(callback: CallbackQuery, state: FSMContext):
     # await save_message_id(callback, callback)
@@ -442,9 +474,9 @@ async def edit_name(message: Message, state: FSMContext):
     await state.set_state(None)
     # -------------BD: fill таргет ------------
     user_id = message.from_user.id
-    await update_data(user_id, {"target": message.text})
+    await Network.update_data(user_id, {"target": message.text})
     # -----------------------------------------
-    sent_message = await message.answer('Супер! Записано!✏', reply_markup=kb.back_to_profile_target)
+    sent_message = await message.answer('Супер! 🔥 Записано! ✏', reply_markup=kb.back_to_profile_target)
     await save_message_id(sent_message, message)
 
 
@@ -455,7 +487,7 @@ async def set_target(message: Message, state: FSMContext):
     # -------------BD: fill target ------------
     if message.text != "/set_profile":
         user_id = message.from_user.id
-        await update_data(user_id, {"target": message.text})
+        await Network.update_data(user_id, {"target": message.text})
     # -----------------------------------------
     await state.update_data(target=message.text)
     await state.set_state(None)
