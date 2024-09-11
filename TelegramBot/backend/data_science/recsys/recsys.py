@@ -81,7 +81,6 @@ class RecSys:
         self.stop_words = list(stopwords.words('russian'))
     
     def get_score_by_forms(self, USERS: dict, id_current: int) -> List:
-        
         """
         Метод получения списка самых похожих пользователей на целевого пользователя
 
@@ -94,23 +93,57 @@ class RecSys:
         """
         db = USERS.copy()
 
-        # Векторизуем целевого юзера
-        current_form = self.model.vectorize([db[id_current].target])
-
-        db.pop(id_current)
-        # db = all([for key, value in ])
+        # удаление людей у которых есть незаполненные поля
         db = {idx: db[idx] for idx in db.keys() if all(db[idx].make_attrs_like_dict().values())}
 
+
+        # Делаем предобработку для поля "hh_cv"
+
+        # Векторизуем целевого юзера поле "target"
+        current_form_target = self.model.vectorize([db[id_current].target])
+
+        # Векторизуем целевого юзера поле "hh_cv"
+        current_hh_cv = self.model.vectorize([" ".join([str(db[id_current].hh_cv[tags]) for tags in db[id_current].hh_cv if tags in ["position", "job_search_status", "about", "tags"]])])
+
+        # Векторизуем целевого юзера поле "about_me"
+        current_about_me = self.model.vectorize([db[id_current].about_me])
+
+        # удаление целевого юзера
+        db.pop(id_current)
+        
         print('ЖОПА\n\n\n\n')
         print(id_current)
         print(db)
 
-        # Векторизуем остальных юзеров
-        other_forms = self.model.vectorize([db[key].about_me for key in db.keys()])
+        # Векторизуем у остальных юзеров поле "about_me"
+        other_forms_about_me = self.model.vectorize([db[key].about_me for key in db.keys()])
+
+        # Векторизуем у остальных юзеров поле "hh_cv"
+        other_forms_hh_cv = self.model.vectorize([" ".join([str(db[key].hh_cv[tags]) for tags in db[key].hh_cv if tags in ["position", "job_search_status", "about", "tags"]]) for key in db.keys()])
+
+        # Векторизуем у остальных юзеров поле "hh_cv"
+        # other_forms_hh_cv = self.model.vectorize([db[key].hh_cv for key in db.keys()])
         list_indexes_users = list(db.keys())
         
-        # Получаем двумерный тензор [[..., ..., ]]
-        score = self.__get_distance(current_form, other_forms)[0]
+        # №1 - расстояние между целевым юзером и остальными юзерами
+        # current - target
+        # other - (about_me + hh_cv) / 2
+        score_first = self.__get_distance(current_form_target, (other_forms_about_me + other_forms_hh_cv) / 2)[0]
+
+        # №2 - расстояние между целевым юзером и остальными юзерами
+        # current - about_me
+        # other - about_me
+        score_second = self.__get_distance(current_about_me, other_forms_about_me)[0]
+
+        # №3 - расстояние между целевым юзером и остальными юзерами
+        # current - hh_cv
+        # other - hh_cv
+        score_third = self.__get_distance(current_hh_cv, other_forms_hh_cv)[0]
+
+        # Считаем среднее между score about_me и hh_cv
+        score_fourth = torch.stack([score_second, score_third]).mean(axis = 0)
+
+        score = (score_first * 0.7) + (score_fourth * 0.3)
 
         values, indices = torch.topk(score, k=score.shape[0])#min(5, score.shape[0])
 
@@ -131,7 +164,6 @@ class RecSys:
         """
 
         
-
         result = []
 
         # Получаем поле "кого ищем" у целевого юзера
