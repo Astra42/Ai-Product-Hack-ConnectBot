@@ -10,7 +10,6 @@ import requests
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from data_science.github_parser.secrets import GITHUB_TOKEN
 
-
 def extract_username(github_url: str) -> str:
     """
     Извлекает имя пользователя из URL GitHub.
@@ -81,10 +80,11 @@ def get_data_from_github_link(github_url: str) -> Dict[str, Any]:
             repo_data = {
                 "name": repo["name"],
                 "description": repo.get("description", "no description")
-                .replace("\r", "")
-                .replace("\n", ""),
+                # .replace("\r", "")
+                # .replace("\n", "")
+                ,
                 "language": repo.get("language", "no language specified"),
-                "readme": get_readme(username, repo["name"], headers).replace("\n", " "),
+                "readme": get_readme(username, repo["name"], headers),#.replace("\n", " "),
                 "link": repo["html_url"],
             }
             github_repos.append(repo_data)
@@ -94,7 +94,7 @@ def get_data_from_github_link(github_url: str) -> Dict[str, Any]:
     data = {
         "github_username": user_data["login"],
         # "github_name": user_data.get("name", ""),
-        "github_bio": user_data.get("bio", "").replace("\r", "").replace("\n", ""),
+        "github_bio": user_data.get("bio", ""),#.replace("\r", "").replace("\n", ""),
         "github_link": github_url,
         # "github_location": user_data.get("location", ""),
         # "github_number_of_public_repos": user_data["public_repos"],
