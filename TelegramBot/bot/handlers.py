@@ -137,7 +137,8 @@ async def get_picture(id):
     img_path = os.path.join('media', f"{id}.jpg")
     if os.path.exists(img_path):
         return FSInputFile(img_path)
-    # else:
+    else:
+        return ""
         # return "\n\n📷 Чтобы установить аватарку, можешь прислать изображение в чат\n"
 
 
@@ -262,8 +263,8 @@ async def ask_confirmation(message: Message, state: FSMContext):
                     if len(user_dict['hh_cv']['about']) > 300:
                         about_me_hh_str += "..."
                 
-                # result_cv_str += f"О себе: {about_me_hh_str}"
-                result_cv_str += f"{about_me_hh_str}"
+                    # result_cv_str += f"О себе: {about_me_hh_str}"
+                    result_cv_str += f"{about_me_hh_str}"
 
             if user_dict['github_cv']:
                 if result_cv_str != "" or result_cv_str != "\n":
@@ -304,13 +305,13 @@ async def ask_confirmation(message: Message, state: FSMContext):
         try: # Здесь под message скрывается коллебк - обрабатываем его
             if isinstance(picture_out, str):#Первый вариант, когда авы нет и нам надо известить
                 sent_message = await message.message.answer(profile_str + picture_out, reply_markup=kb.profile_kb)
-            else:#Второй - ава есть, надо отправить как пикчу
+            else: # Второй - ава есть, надо отправить как пикчу
                 sent_message = await message.message.bot.send_photo(message.message.chat.id, photo=picture_out, caption=profile_str, reply_markup=kb.profile_kb)
 
         except Exception: # если не угадали - это обычный message
             if isinstance(picture_out, str):#Первый вариант, когда авы нет и нам надо известить
                 sent_message = await message.answer(profile_str + picture_out, reply_markup=kb.profile_kb)
-            else:#Второй - ава есть, надо отправить как пикчу
+            else: # Второй - ава есть, надо отправить как пикчу
                 print(picture_out)
                 sent_message = await message.bot.send_photo(message.chat.id, photo=picture_out, caption=profile_str, reply_markup=kb.profile_kb)
 
@@ -322,11 +323,15 @@ async def save_telegram_personal_avatar(message: Message):
     if os.path.exists(os.path.join('media', str(message.from_user.id) + '.jpg')):
         return
     user_profile_photo: UserProfilePhotos = await message.bot.get_user_profile_photos(message.from_user.id)
-    if len(user_profile_photo.photos[0]) > 0:
-        file = await message.bot.get_file(user_profile_photo.photos[0][0].file_id)
-        await _download_photo(message, file, show_keyboard=False)
-    else:
-        print('У пользователя нет фото в профиле.') 
+    try:
+        print(f"bot:save_telegram_personal_avatar:{user_profile_photo.photos=}")
+        if len(user_profile_photo.photos[0]) > 0:
+            file = await message.bot.get_file(user_profile_photo.photos[0][0].file_id)
+            await _download_photo(message, file, show_keyboard=False)
+        else:
+            print('У пользователя нет фото в профиле.') 
+    except Exception as e:
+        print(f"bot:save_telegram_personal_avatar:{e=}")
 
 @router.message(CommandStart())
 async def start(message: Message):
@@ -637,16 +642,23 @@ async def set_target(message: Message, state: FSMContext):
     await state.set_state(None)
     await ask_confirmation(message, state)
 
-
 async def get_profile_str(rec_num, user_dict: dict, n_gramms: list):
+    n_gramms = n_gramms[:1]
+
     return "-" * 10 + '\n' + \
     f"/{rec_num}" + '\n' +\
     f"{user_dict['name']}\n\n" + \
     f"🧐 About:\n{await apply_n_gramms(user_dict['about_me'], n_gramms)}\n\n" + \
     f"📝 CV ссылка:\n{user_dict['cv_path']}\n\n"
 
-async def answer_by_msg_or_clb(message: Optional[Union[Message, CallbackQuery]], content:str,  reply_markup=None, photo=None):
+async def answer_by_msg_or_clb(message: Optional[Union[Message, CallbackQuery]], content : str,  reply_markup=None, photo=None):
     message_type = message.message if isinstance(message, CallbackQuery) else message
+    print(f"bot:answer_by_msg_or_clb:{content=}")
+    try:
+        content.replace(r"</u</u>", r"</u>")
+    except:
+        pass
+
     if photo is not None and not isinstance(photo, str):
         print(f'answer_by_msg_or_clb:{photo=}')
         return await message_type.bot.send_photo(message_type.chat.id, photo=photo, caption=content,reply_markup=reply_markup, parse_mode="html")
