@@ -4,12 +4,6 @@ from langchain.chains import LLMChain
 from langchain_community.llms import YandexGPT
 from langchain_core.prompts import PromptTemplate
 
-yandex_dict = {
-    "api_key": "YOUR-API-KEY",
-    "model_uri": "YOUR-MODEL-URI",
-    "folder_id": "YOUR-FOLDER-ID",
-}
-
 
 def get_summarisation_from_github_projects(
     github_repos: List[Dict[str, Any]], yandex_dict: Dict[str, str], n=150
