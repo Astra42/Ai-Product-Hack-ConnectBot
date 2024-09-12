@@ -188,13 +188,21 @@ async def catalog(message: Message, state: FSMContext):
                 user_pointers[user_id] = serial_rec_num
 
             recommendation = await Network.get_recommendation(user_id, rec_num=user_pointers[user_id] - 1, refresh=False)
-            n_gramms = eval(await Network.get_inplementation(user_id, inplement_num=user_pointers[user_id] - 1, refresh=False))
+            
+            try:
+                n_gramms = eval(await Network.get_inplementation(user_id, inplement_num=user_pointers[user_id] - 1, refresh=False))
+            except Exception as e:
+                print(f'bot:catalog {e=}')
+                n_gramms = []
+            
             print('n_gramms', n_gramms)
 
             content = await get_profile_str(user_pointers[user_id], eval(recommendation), n_gramms=n_gramms)
             await answer_by_msg_or_clb(
                 message, content,
-                reply_markup=kb.get_watch_next_kb_buttons())# kb.get_watch_next_kb(num=user_pointers[user_id])
+                reply_markup=kb.get_watch_next_kb_buttons()
+                # kb.get_watch_next_kb(num=user_pointers[user_id])
+            )
 
 
 
