@@ -50,8 +50,12 @@ def get_watch_next_kb(num: int):
 profile_kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Поиск собеседника 🔎", callback_data="search_interlocutor")],
         [InlineKeyboardButton(text="⚙ Имя", callback_data="edit_name"), InlineKeyboardButton(text="⚙ О себе", callback_data="edit_about_me")],
-        [InlineKeyboardButton(text="⚙ СV", callback_data="edit_cv_path"), InlineKeyboardButton(text="⚙ Кого ищу", callback_data="edit_target")]]
-    )
+        [
+            InlineKeyboardButton(text="⚙ СV", callback_data="edit_cv_path"),
+            InlineKeyboardButton(text="⚙ github", callback_data="edit_github"),
+            InlineKeyboardButton(text="⚙ Кого ищу", callback_data="edit_target")
+        ]
+])
 
 
 

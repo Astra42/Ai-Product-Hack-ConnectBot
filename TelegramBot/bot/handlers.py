@@ -13,16 +13,19 @@ from data_science.github_parser import github_parser
 
 from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery, FSInputFile
+from aiogram.types import UserProfilePhotos
+
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
+
 
 import aiohttp # ассинх аналог requests
 import keyboards as kb
 
 import asyncio
 from typing import Union, Optional, List, Tuple
-
+from pprint import pprint
 
 
 router = Router()
@@ -32,12 +35,15 @@ class Form(StatesGroup): #Состояния для заполнения фор�
     about_me = State()
     cv_path = State()
     target = State()
+    github = State()
 
 class Editing(StatesGroup):#Состояния для редактирования
     edit_name = State()
     edit_about_me = State()
     edit_cv_path = State()
     edit_target = State()
+    edit_github = State()
+
 
 # \__DELETE_ALL
 # Хранение сообщений пользователя и блокировка для синхронизации доступа
@@ -131,8 +137,8 @@ async def get_picture(id):
     img_path = os.path.join('media', f"{id}.jpg")
     if os.path.exists(img_path):
         return FSInputFile(img_path)
-    else:
-        return "\n\n📷 Чтобы установить аватарку, можешь прислать изображение в чат\n"
+    # else:
+        # return "\n\n📷 Чтобы установить аватарку, можешь прислать изображение в чат\n"
 
 
 @router.message(Command('search_interlocutor_from_menu'))
@@ -148,7 +154,7 @@ async def catalog(message: Message, state: FSMContext):
     # await delete_all_messages(message)
     user_id = message.from_user.id
     #Еще ни разу не пользовался рекомендациями или решил обновиться
-    print('user_pointers', user_pointers)
+    print(f'bot:catalog:{user_pointers=}', )
     print(message)
     text = message.text if isinstance(message, Message) else message.data
     if (user_id not in user_pointers.keys() or text.startswith(('search_', '/search_'))) and text != '🚀 Далее':
@@ -226,38 +232,47 @@ async def catalog(message: Message, state: FSMContext):
 @router.message(Command('set_profile'))
 @router.callback_query((F.data == 'set_profile'))
 async def ask_confirmation(message: Message, state: FSMContext):
-    await state.set_state(None)#Сразу зануляем все стейты
+    await state.set_state(None) # Сразу зануляем все стейты
     await delete_all_messages(message, message)
     # await delete_all_messages(message.bot, message.from_user.id)    
 
+    
     user_id = message.from_user.id
     user_dict = await Network.get_specific_profile(user_id)
     if user_dict == '404':
         sent_message = await message.answer("Упс, кажется Ваша анкета пуста 🙈", reply_markup=kb.fill_pls_kb)
     else:
-        print(user_dict, type(user_dict))
-        print(eval(user_dict), type(eval(user_dict)))
+        
+        # print(user_dict, type(user_dict))
+        # print(eval(user_dict), type(eval(user_dict)))
 
         user_dict = eval(eval(user_dict))
-        print(user_dict, type(user_dict))
-        print(f'{type(user_dict)=}\n{user_dict=}')
+        # print(f'bot:ask_confirmation0:', user_dict, type(user_dict))
+        # pprint(f'bot:ask_confirmation{user_dict[user_id]=}')
+        # print(f'{type(user_dict)=}\n{user_dict=}')
 
         def pretty_cv(user_dict: dict) -> str:
             result_cv_str = ""
             if user_dict['hh_cv'] and isinstance(user_dict['hh_cv'], dict):
                 if user_dict['hh_cv']['position']:
-                    result_cv_str += f"👤 Позиция: {user_dict['hh_cv']['position']}\n"
+                    result_cv_str += f"📝 CV | 👤 {user_dict['hh_cv']['position']}\n"
+                    # result_cv_str += f"👤 Позиция: {user_dict['hh_cv']['position']}\n"
 
                     about_me_hh_str = f"{user_dict['hh_cv']['about'][:300]}"
                     if len(user_dict['hh_cv']['about']) > 300:
                         about_me_hh_str += "..."
                 
-                result_cv_str += f"О себе: {about_me_hh_str}"
+                # result_cv_str += f"О себе: {about_me_hh_str}"
+                result_cv_str += f"{about_me_hh_str}"
 
-            elif user_dict['github_cv']:
+            if user_dict['github_cv']:
+                if result_cv_str != "" or result_cv_str != "\n":
+                     result_cv_str += "\n\n"
+
                 if 'github_username' in user_dict['github_cv'] and user_dict['github_cv']['github_username'] != "" \
                     and user_dict['github_cv']['github_username'] is not None:
-                    result_cv_str += f"👤 {user_dict['github_cv']['github_username']}\n"
+                    result_cv_str += f"💻 github | 👤 {user_dict['github_cv']['github_username']}\n"
+                    # result_cv_str += f"👤 {user_dict['github_cv']['github_username']}\n"
 
                     if user_dict['github_cv']['github_bio'] is not None \
                         and user_dict['github_cv']['github_bio'] != "":
@@ -266,17 +281,21 @@ async def ask_confirmation(message: Message, state: FSMContext):
 
                         if len(user_dict['github_cv']['github_bio']) > 300:
                             about_me_github_str += "..."
-                        result_cv_str += f"О себе: {about_me_github_str}"
+                        # result_cv_str += f"О себе: {about_me_github_str}"
+                        result_cv_str += f"{about_me_github_str}"
 
-            else:
-                result_cv_str += f"{user_dict['cv_path']}"
+            # if user_dict['cv_path']:
+            #     result_cv_str += f"📝 CV\n"
+            #     result_cv_str += f"{user_dict['cv_path']}"
 
             return result_cv_str
 
+
         profile_str =f"{user_dict['name']}, твоя анкета:\n\n" + \
             f"🧐 Обо мне:\n{user_dict['about_me']}\n\n" + \
-            f"📝 CV ссылка:\n{pretty_cv(user_dict)}\n\n" + \
-            f"🔎 Ищу:\n{user_dict['target']}"
+            f"{pretty_cv(user_dict)}\n\n" + \
+            f"🔎 Ищу:\n{user_dict['target']}\n\n" + \
+            f"📷 Чтобы поставить/именить аватарку, можешь прислать изображение в чат\n"
 
         picture_out = await get_picture(user_id)
 
@@ -299,6 +318,16 @@ async def ask_confirmation(message: Message, state: FSMContext):
 
 
 
+async def save_telegram_personal_avatar(message: Message):
+    if os.path.exists(os.path.join('media', str(message.from_user.id) + '.jpg')):
+        return
+    user_profile_photo: UserProfilePhotos = await message.bot.get_user_profile_photos(message.from_user.id)
+    if len(user_profile_photo.photos[0]) > 0:
+        file = await message.bot.get_file(user_profile_photo.photos[0][0].file_id)
+        await _download_photo(message, file, show_keyboard=False)
+    else:
+        print('У пользователя нет фото в профиле.') 
+
 @router.message(CommandStart())
 async def start(message: Message):
     hi_str = """Привет! 👋
@@ -306,9 +335,14 @@ async def start(message: Message):
 Здесь ты можешь поделиться своими интересами 🧙‍, увлечениями 🤸‍
 описать какого собседника ты хочешь найти 🤠
 """
+    await save_telegram_personal_avatar(message)
+
     print(f"bot:start:{message.bot.id=}")
     sent_message = await message.answer(hi_str, reply_markup=kb.hi_kb)
     await save_message_id(sent_message, message)
+
+
+
     
 
 #------------------------------------------- 1 - name ----------------
@@ -354,6 +388,39 @@ async def edit_name(message: Message, state: FSMContext):
     sent_message = await message.answer('Супер! 🔥 Записано! ✏', reply_markup=kb.back_to_profile)
     await save_message_id(sent_message, message)
 
+
+
+##########
+
+
+@router.callback_query(F.data == "edit_github") # Редактировать github - вопрос
+async def edit_name(callback: CallbackQuery, state: FSMContext):
+    # print(f'{callback=}')
+    await delete_all_messages(callback, callback)
+
+    await state.set_state(Editing.edit_github)
+    sent_message = await callback.message.answer(f"""Укажите  github: """)
+    await save_message_id(sent_message, callback)
+
+
+@router.message(Editing.edit_github) # Редактировать имя - переход в меню
+async def edit_name(message: Message, state: FSMContext):
+    await save_message_id(message, message)
+    await delete_all_messages(message, message)
+    await state.set_state(None)
+
+    # -------------BD: fill name ------------
+    user_id = message.from_user.id
+    # await Network.update_data(user_id, {"name": message.text})
+    await parse_and_update_cv(cv_link=message.text, user_id=user_id)
+    
+    # -----------------------------------------
+    # await message.answer(f"""Новое имя: {callback.message.text}""")
+
+    sent_message = await message.answer('Супер! 🔥 Записано! ✏', reply_markup=kb.back_to_profile)
+    await save_message_id(sent_message, message)
+
+##########
 
 #------------------------------------------- 2 - about ----------------
 @router.message(Form.name)
@@ -425,7 +492,7 @@ async def edit_name(callback: CallbackQuery, state: FSMContext):
     # await save_message_id(callback)
     await delete_all_messages(callback, callback)
     await state.set_state(Editing.edit_cv_path)
-    sent_message = await callback.message.answer("""Изменить ссылку на CV:\n* hh.ru\n* github.com:""")
+    sent_message = await callback.message.answer("""Изменить ссылку на CV с hh.ru:\n""")
     await save_message_id(sent_message, callback)
 
 
@@ -442,7 +509,7 @@ async def parse_and_update_cv(cv_link: str, user_id: int) -> bool:
     # TODO : not async !!!
     print(f'bot:parse_and_update_cv:{cv_link=}')
     hh_resume_dict = hh_parser.get_data_from_hh_link(link=cv_link)
-    print(f'bot:parse_and_update_cv:{hh_resume_dict=}')
+    # print(f'bot:parse_and_update_cv:{hh_resume_dict=}')
     
     if hh_resume_dict is not None and 'position' in hh_resume_dict and hh_resume_dict['position'] != '':
         is_success = await Network.update_data(user_id, {"hh_cv": hh_resume_dict})
@@ -470,7 +537,7 @@ async def parse_and_update_cv(cv_link: str, user_id: int) -> bool:
     except Exception as e:
         print(f'bot:parse_and_update_cv:{e=}')
         github_resume_dict = None
-    print(f'bot:parse_and_update_cv:{github_resume_dict=}')
+    # print(f'bot:parse_and_update_cv:{github_resume_dict=}')
         
     if github_resume_dict is not None:
         is_success = await Network.update_data(user_id, {"github_cv": github_resume_dict})
@@ -535,10 +602,11 @@ async def get_target(message: Message, state: FSMContext):
 @router.message(F.text == '✏ Изменить кого ищу')
 @router.callback_query(F.data == "edit_target")  # Редактировать таргет - вопрос
 async def edit_name(callback: CallbackQuery, state: FSMContext):
+    print(f"bot:edit_name:{callback=}")
     # await save_message_id(callback, callback)
     await delete_all_messages(callback, callback)
     await state.set_state(Editing.edit_target)
-    sent_message = await answer_by_msg_or_clb(callback, "Изменить кого ищу:")#await callback.message.answer()
+    sent_message = await answer_by_msg_or_clb(callback, "Изменить кого ищу:") # await callback.message.answer()
     print(sent_message)
     await save_message_id(sent_message, callback)
 
@@ -559,6 +627,7 @@ async def edit_name(message: Message, state: FSMContext):
 async def set_target(message: Message, state: FSMContext):
     await save_message_id(message, message)
     await delete_all_messages(message, message)
+
     # -------------BD: fill target ------------
     if message.text != "/set_profile":
         user_id = message.from_user.id
@@ -567,6 +636,7 @@ async def set_target(message: Message, state: FSMContext):
     await state.update_data(target=message.text)
     await state.set_state(None)
     await ask_confirmation(message, state)
+
 
 async def get_profile_str(rec_num, user_dict: dict, n_gramms: list):
     return "-" * 10 + '\n' + \
@@ -577,8 +647,8 @@ async def get_profile_str(rec_num, user_dict: dict, n_gramms: list):
 
 async def answer_by_msg_or_clb(message: Optional[Union[Message, CallbackQuery]], content:str,  reply_markup=None, photo=None):
     message_type = message.message if isinstance(message, CallbackQuery) else message
-    if not isinstance(photo, str):
-        print(photo)
+    if photo is not None and not isinstance(photo, str):
+        print(f'answer_by_msg_or_clb:{photo=}')
         return await message_type.bot.send_photo(message_type.chat.id, photo=photo, caption=content,reply_markup=reply_markup, parse_mode="html")
 
     return await message_type.answer(content, reply_markup=reply_markup, parse_mode="html")
@@ -586,15 +656,28 @@ async def answer_by_msg_or_clb(message: Optional[Union[Message, CallbackQuery]],
 
 
 #--------------------ФОТО------------------
-@router.message(F.photo)
-async def download_photo(message: Message):
+async def _download_photo(message: Message, photo = None, show_keyboard: bool = True):
     media_path = f"media"
     os.makedirs(media_path, mode=0o777, exist_ok=True)
+    if photo is None:
+        photo = message.photo[-1]
+ 
     await message.bot.download(
-        message.photo[-1],
+        # message.photo[-1],
+        photo,
         destination=os.path.join(media_path, f"{message.from_user.id}.jpg")
     )
-    await message.answer('Супер! 🔥 фото прикреплено!', reply_markup=kb.back_to_profile)
+    if show_keyboard:
+        await message.answer('Супер! 🔥 фото прикреплено!', reply_markup=kb.back_to_profile)
+
+
+@router.message(F.photo)
+async def download_photo(message: Message):
+    await _download_photo(message)
+
+
+
+
 
 
 #-------------------------------------------------------
