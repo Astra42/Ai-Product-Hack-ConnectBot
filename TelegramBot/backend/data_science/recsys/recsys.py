@@ -80,6 +80,39 @@ class RecSys:
         self.model = model
         self.stop_words = list(stopwords.words('russian'))
     
+    
+    def __preprocess_forms(self, database: dict) -> dict:
+        """
+        Закрытый метод предобработки формы
+
+        Аргументы:
+            database: dict - словарь пользователей
+
+        Возвращает:
+            dict - словарь пользователей с предобработанными полями "hh_cv" и "github_cv"
+        """
+        db = database.copy()
+
+        result = {}
+        # Делаем пред обработку для поля "hh_cv" и "github_cv" и удаление людей у которых есть незаполненные поля
+        for idx in db.keys():
+            if all(db[idx].make_attrs_like_dict().values()):
+                # проверка на отсутствие "hh_cv"
+                if not db[idx].hh_cv:
+                    db[idx].hh_cv = db[idx].about_me
+                else:
+                     db[idx].hh_cv = " ".join([str(db[idx].hh_cv[tags]) for tags in db[idx].hh_cv if tags in ["position", "job_search_status", "about", "tags"]])
+
+                # проверка на отсутствие "github_cv"
+                if not db[idx].github_cv:
+                    db[idx].github_cv = db[idx].about_me
+                
+                else:
+                    db[idx].github_cv = " ".join([str(db[idx].github_cv[tags]) for tags in db[idx].github_cv])
+
+                result[idx] = db[idx]
+        return result
+
     def get_score_by_forms(self, USERS: dict, id_current: int) -> List:
         """
         Метод получения списка самых похожих пользователей на целевого пользователя
@@ -93,9 +126,9 @@ class RecSys:
         """
         db = USERS.copy()
 
-        # удаление людей у которых есть незаполненные поля
-        db = {idx: db[idx] for idx in db.keys() if all(db[idx].make_attrs_like_dict().values())}
-
+        
+        
+        db = self.__preprocess_forms(db)
 
         # Делаем предобработку для поля "hh_cv"
 
@@ -103,10 +136,13 @@ class RecSys:
         current_form_target = self.model.vectorize([db[id_current].target])
 
         # Векторизуем целевого юзера поле "hh_cv"
-        current_hh_cv = self.model.vectorize([" ".join([str(db[id_current].hh_cv[tags]) for tags in db[id_current].hh_cv if tags in ["position", "job_search_status", "about", "tags"]])])
+        current_hh_cv = self.model.vectorize([db[id_current].hh_cv])
 
         # Векторизуем целевого юзера поле "about_me"
         current_about_me = self.model.vectorize([db[id_current].about_me])
+
+        # Векторизуем целевого юзера поле "github_cv"
+        current_github_cv = self.model.vectorize([db[id_current].github_cv])
 
         # удаление целевого юзера
         db.pop(id_current)
@@ -119,16 +155,18 @@ class RecSys:
         other_forms_about_me = self.model.vectorize([db[key].about_me for key in db.keys()])
 
         # Векторизуем у остальных юзеров поле "hh_cv"
-        other_forms_hh_cv = self.model.vectorize([" ".join([str(db[key].hh_cv[tags]) for tags in db[key].hh_cv if tags in ["position", "job_search_status", "about", "tags"]]) for key in db.keys()])
+        other_forms_hh_cv = self.model.vectorize([db[key].hh_cv for key in db.keys()])
 
-        # Векторизуем у остальных юзеров поле "hh_cv"
-        # other_forms_hh_cv = self.model.vectorize([db[key].hh_cv for key in db.keys()])
+        # Векторизуем у остальных юзеров поле "github_cv"
+        other_forms_github_cv = self.model.vectorize([db[key].github_cv for key in db.keys()])
+
+        # Список индексов юзеров
         list_indexes_users = list(db.keys())
         
         # №1 - расстояние между целевым юзером и остальными юзерами
         # current - target
         # other - (about_me + hh_cv) / 2
-        score_first = self.__get_distance(current_form_target, (other_forms_about_me + other_forms_hh_cv) / 2)[0]
+        score_first = self.__get_distance(current_form_target, torch.stack([other_forms_about_me, other_forms_hh_cv]).mean(axis = 0))[0]
 
         # №2 - расстояние между целевым юзером и остальными юзерами
         # current - about_me
@@ -140,10 +178,16 @@ class RecSys:
         # other - hh_cv
         score_third = self.__get_distance(current_hh_cv, other_forms_hh_cv)[0]
 
-        # Считаем среднее между score about_me и hh_cv
-        score_fourth = torch.stack([score_second, score_third]).mean(axis = 0)
+        # №4 - расстояние между целевым юзером и остальными юзерами
+        # current - github_cv
+        # other - github_cv
+        score_fourth = self.__get_distance(current_github_cv, other_forms_github_cv)[0]
 
-        score = (score_first * 0.7) + (score_fourth * 0.3)
+        # Считаем среднее между score about_me и hh_cv
+        score_fifth = torch.stack([score_second, score_third, score_fourth]).mean(axis = 0)
+
+        
+        score = (score_first * 0.7) + (score_fifth * 0.3)
 
         values, indices = torch.topk(score, k=score.shape[0])#min(5, score.shape[0])
 
@@ -212,7 +256,7 @@ class RecSys:
             pair_n_gramms = [{"curr_n_gramm": slice_list_target[i], "target_n_gramm": slice_list_user[max_indexes[i]], "score": max_values[i].numpy()}  for i in range(max_indexes.shape[0])]
             
             # Берём 50% самых близких n-gramm
-            pair_n_gramms = [n_gramm["target_n_gramm"] for n_gramm in sorted(pair_n_gramms, key=lambda x: x['score'], reverse = True)[:len(pair_n_gramms)//2]]
+            pair_n_gramms = [n_gramm["target_n_gramm"] for n_gramm in sorted(pair_n_gramms, key=lambda x: x['score'], reverse = True)[:min(3, len(pair_n_gramms))]]
             
             result.append(pair_n_gramms)
 
