@@ -7,6 +7,7 @@ from TelegramBot.bot.network import Network
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from data_science.hh_parser import hh_parser
+from data_science.github_parser import github_parser
 
 
 from aiogram import F, Router
@@ -235,6 +236,14 @@ async def ask_confirmation(message: Message, state: FSMContext):
                     about_me_hh_str += "..."
                 
                 result_cv_str += f"О себе: {about_me_hh_str}"
+            elif 'github_username' in user_dict['github_cv'] and user_dict['github_cv']['github_username'] != "":
+                result_cv_str += f"👤 {user_dict['github_cv']['github_username']}\n"
+                
+                if user_dict['github_cv']['github_bio'] != "":
+                    about_me_github_str = f"{user_dict['github_cv']['github_bio'][:300]}"
+                if len(user_dict['github_cv']['github_bio']) > 300:
+                    about_me_github_str += "..."
+                result_cv_str += f"О себе: {about_me_github_str}"
 
             else:
                 result_cv_str += f"{user_dict['cv_path']}"
@@ -381,7 +390,7 @@ async def edit_name(callback: CallbackQuery, state: FSMContext):
     # await save_message_id(callback)
     await delete_all_messages(callback, callback)
     await state.set_state(Editing.edit_cv_path)
-    sent_message = await callback.message.answer("""Изменить ссылку на CV [hh.ru]:""")
+    sent_message = await callback.message.answer("""Изменить ссылку на CV:\n* hh.ru\n* github.com:""")
     await save_message_id(sent_message, callback)
 
 
@@ -399,24 +408,48 @@ async def parse_and_update_cv(cv_link: str, user_id: int) -> bool:
     print(f'bot:parse_and_update_cv:{cv_link=}')
     hh_resume_dict = hh_parser.get_data_from_hh_link(link=cv_link)
     print(f'bot:parse_and_update_cv:{hh_resume_dict=}')
-    if hh_resume_dict is not None:
+    
+    if hh_resume_dict is not None and 'position' in hh_resume_dict and hh_resume_dict['position'] != '':
         is_success = await Network.update_data(user_id, {"hh_cv": hh_resume_dict})
         print(f'bot:parse_and_update_cv:{is_success=}')
         if is_success:
             return True
-    else:
-        empty_hh_resume_dict =  {
-            "position": "",
-            "age": "",
-            "gender": "",
-            "job_search_status": "",
-            "about": "",
-            "jobs": [],
-            "tags": [],
-            "eduacation": [],
-            "link": ""
-        }
-        await Network.update_data(user_id, {"hh_cv": empty_hh_resume_dict})
+
+    # dont need - in User __init__ empty class assign
+    # empty_hh_resume_dict =  {
+    #     "position": "",
+    #     "age": "",
+    #     "gender": "",
+    #     "job_search_status": "",
+    #     "about": "",
+    #     "jobs": [],
+    #     "tags": [],
+    #     "eduacation": [],
+    #     "link": ""
+    # }
+    # await Network.update_data(user_id, {"hh_cv": empty_hh_resume_dict})
+
+    # TODO : not async !!!
+    try:
+        github_resume_dict = github_parser.get_data_from_github_link(github_url=cv_link)
+    except Exception as e:
+        print(f'bot:parse_and_update_cv:{e=}')
+        github_resume_dict = None
+    print(f'bot:parse_and_update_cv:{github_resume_dict=}')
+        
+    if github_resume_dict is not None:
+        is_success = await Network.update_data(user_id, {"github_cv": github_resume_dict})
+        print(f'bot:parse_and_update_cv:{is_success=}')
+        if is_success:
+            return True
+
+    # empty_github_cv = {
+    #             "github_username": "",
+    #             "github_bio": "",
+    #             "github_link": "",
+    #             "github_repos": [
+    #             ]
+    #         }
 
     return False
 
