@@ -1,3 +1,4 @@
+import io
 import os
 import sys
 
@@ -11,7 +12,7 @@ from data_science.github_parser import github_parser
 
 
 from aiogram import F, Router
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
@@ -21,7 +22,6 @@ import keyboards as kb
 
 import asyncio
 from typing import Union, Optional, List, Tuple
-
 
 
 
@@ -122,9 +122,17 @@ async def apply_n_gramms(about_me : str, n_gramms: List[List]):
     last_pairs = ''
     for start, end in n_gramms:
         if f"{start}-{end}" not in last_pairs:
-            about_me = about_me[:start] + "<b>" + about_me[start:end]+ "</b>" + about_me[end:]
+            about_me = about_me[:start] + "<u>" + about_me[start:end]+ "</u>" + about_me[end:]
             last_pairs += f", {start}-{end}"
     return about_me
+
+
+async def get_picture(id):
+    img_path = os.path.join('media', f"{id}.jpg")
+    if os.path.exists(img_path):
+        return FSInputFile(img_path)
+    else:
+        return "\n\n📷 Чтобы установить аватарку, можешь прислать изображение в чат\n"
 
 
 @router.message(Command('search_interlocutor_from_menu'))
@@ -165,8 +173,13 @@ async def catalog(message: Message, state: FSMContext):
         async with user_pointers_lock:
             user_pointers[user_id] = 1 # Указатель на первой анкете
 
-        content = await get_profile_str(1, eval(recommendation), n_gramms=n_gramms)
-        await answer_by_msg_or_clb(message, content, reply_markup=kb.get_watch_next_kb_buttons()) # kb.get_watch_next_kb(1)
+        print(recommendation)
+
+        recomended_profile_dict = eval(recommendation)
+        photo = await get_picture(recomended_profile_dict['id'])
+        content = await get_profile_str(1, recomended_profile_dict, n_gramms=n_gramms)
+
+        await answer_by_msg_or_clb(message, content, reply_markup=kb.get_watch_next_kb_buttons(), photo=photo) # kb.get_watch_next_kb(1)
 
     # Переключается по анкетам
     else:
@@ -198,15 +211,18 @@ async def catalog(message: Message, state: FSMContext):
             
             print('n_gramms', n_gramms)
 
+            recomended_profile_dict = eval(recommendation)
+            photo = await get_picture(recomended_profile_dict['id'])
             content = await get_profile_str(user_pointers[user_id], eval(recommendation), n_gramms=n_gramms)
             await answer_by_msg_or_clb(
                 message, content,
-                reply_markup=kb.get_watch_next_kb_buttons()
+                reply_markup=kb.get_watch_next_kb_buttons(),
+                photo=photo
                 # kb.get_watch_next_kb(num=user_pointers[user_id])
             )
 
 
-
+# @router.message(F.text == "🍺 / 🍷")
 @router.message(Command('set_profile'))
 @router.callback_query((F.data == 'set_profile'))
 async def ask_confirmation(message: Message, state: FSMContext):
@@ -228,22 +244,29 @@ async def ask_confirmation(message: Message, state: FSMContext):
 
         def pretty_cv(user_dict: dict) -> str:
             result_cv_str = ""
-            if 'position' in user_dict['hh_cv'] and user_dict['hh_cv']['position'] != "":
-                result_cv_str += f"👤 Позиция: {user_dict['hh_cv']['position']}\n"
+            if user_dict['hh_cv'] and isinstance(user_dict['hh_cv'], dict):
+                if user_dict['hh_cv']['position']:
+                    result_cv_str += f"👤 Позиция: {user_dict['hh_cv']['position']}\n"
 
-                about_me_hh_str = f"{user_dict['hh_cv']['about'][:300]}"
-                if len(user_dict['hh_cv']['about']) > 300:
-                    about_me_hh_str += "..."
+                    about_me_hh_str = f"{user_dict['hh_cv']['about'][:300]}"
+                    if len(user_dict['hh_cv']['about']) > 300:
+                        about_me_hh_str += "..."
                 
                 result_cv_str += f"О себе: {about_me_hh_str}"
-            elif 'github_username' in user_dict['github_cv'] and user_dict['github_cv']['github_username'] != "":
-                result_cv_str += f"👤 {user_dict['github_cv']['github_username']}\n"
-                
-                if user_dict['github_cv']['github_bio'] != "":
-                    about_me_github_str = f"{user_dict['github_cv']['github_bio'][:300]}"
-                if len(user_dict['github_cv']['github_bio']) > 300:
-                    about_me_github_str += "..."
-                result_cv_str += f"О себе: {about_me_github_str}"
+
+            elif user_dict['github_cv']:
+                if 'github_username' in user_dict['github_cv'] and user_dict['github_cv']['github_username'] != "" \
+                    and user_dict['github_cv']['github_username'] is not None:
+                    result_cv_str += f"👤 {user_dict['github_cv']['github_username']}\n"
+
+                    if user_dict['github_cv']['github_bio'] is not None \
+                        and user_dict['github_cv']['github_bio'] != "":
+
+                        about_me_github_str = f"{user_dict['github_cv']['github_bio'][:300]}"
+
+                        if len(user_dict['github_cv']['github_bio']) > 300:
+                            about_me_github_str += "..."
+                        result_cv_str += f"О себе: {about_me_github_str}"
 
             else:
                 result_cv_str += f"{user_dict['cv_path']}"
@@ -254,10 +277,23 @@ async def ask_confirmation(message: Message, state: FSMContext):
             f"🧐 Обо мне:\n{user_dict['about_me']}\n\n" + \
             f"📝 CV ссылка:\n{pretty_cv(user_dict)}\n\n" + \
             f"🔎 Ищу:\n{user_dict['target']}"
+
+        picture_out = await get_picture(user_id)
+
+
+
         try: # Здесь под message скрывается коллебк - обрабатываем его
-            sent_message = await message.message.answer(profile_str, reply_markup=kb.profile_kb)
+            if isinstance(picture_out, str):#Первый вариант, когда авы нет и нам надо известить
+                sent_message = await message.message.answer(profile_str + picture_out, reply_markup=kb.profile_kb)
+            else:#Второй - ава есть, надо отправить как пикчу
+                sent_message = await message.message.bot.send_photo(message.message.chat.id, photo=picture_out, caption=profile_str, reply_markup=kb.profile_kb)
+
         except Exception: # если не угадали - это обычный message
-            sent_message = await message.answer(profile_str, reply_markup=kb.profile_kb)
+            if isinstance(picture_out, str):#Первый вариант, когда авы нет и нам надо известить
+                sent_message = await message.answer(profile_str + picture_out, reply_markup=kb.profile_kb)
+            else:#Второй - ава есть, надо отправить как пикчу
+                print(picture_out)
+                sent_message = await message.bot.send_photo(message.chat.id, photo=picture_out, caption=profile_str, reply_markup=kb.profile_kb)
 
     await save_message_id(sent_message, message)
 
@@ -380,7 +416,6 @@ async def get_cv(message: Message, state: FSMContext):
 * ссылку на резюме hh.ru 
 * ссылку на github.com
 """
-
     sent_message = await message.answer(cv_msg)
     await save_message_id(sent_message, message)
 
@@ -465,7 +500,7 @@ async def edit_name(message: Message, state: FSMContext):
     # TODO : not async !!!
     if not is_update_cv:
         await Network.update_data(user_id, {"cv_path": message.text})
-    
+
 
     # -----------------------------------------
     sent_message = await message.answer('Супер! 🔥 Записано! ✏', reply_markup=kb.back_to_profile)
@@ -488,8 +523,7 @@ async def get_target(message: Message, state: FSMContext):
     
     # -----------------------------------------
     await state.update_data(cv_path=message.text)
-    
-    
+
     await state.set_state(None)
     await state.set_state(Form.target)
     target_msg = """Опиши в свободной форме собеседника, которого ты хочешь найти 🔎"""
@@ -536,16 +570,19 @@ async def set_target(message: Message, state: FSMContext):
 
 async def get_profile_str(rec_num, user_dict: dict, n_gramms: list):
     return "-" * 10 + '\n' + \
-    f"/{rec_num}" + '\n'\
+    f"/{rec_num}" + '\n' +\
     f"{user_dict['name']}\n\n" + \
     f"🧐 About:\n{await apply_n_gramms(user_dict['about_me'], n_gramms)}\n\n" + \
     f"📝 CV ссылка:\n{user_dict['cv_path']}\n\n"
 
-async def answer_by_msg_or_clb(message: Optional[Union[Message, CallbackQuery]],content:str,  reply_markup=None):
-    if isinstance(message, CallbackQuery):
-        return await message.message.answer(content, reply_markup=reply_markup, parse_mode="html")
-    else:
-        return await message.answer(content, reply_markup=reply_markup, parse_mode="html")
+async def answer_by_msg_or_clb(message: Optional[Union[Message, CallbackQuery]], content:str,  reply_markup=None, photo=None):
+    message_type = message.message if isinstance(message, CallbackQuery) else message
+    if not isinstance(photo, str):
+        print(photo)
+        return await message_type.bot.send_photo(message_type.chat.id, photo=photo, caption=content,reply_markup=reply_markup, parse_mode="html")
+
+    return await message_type.answer(content, reply_markup=reply_markup, parse_mode="html")
+
 
 
 #--------------------ФОТО------------------
@@ -557,58 +594,13 @@ async def download_photo(message: Message):
         message.photo[-1],
         destination=os.path.join(media_path, f"{message.from_user.id}.jpg")
     )
+    await message.answer('Супер! 🔥 фото прикреплено!', reply_markup=kb.back_to_profile)
 
 
-
-# @router.message(CommandStart())
-# async def cmd_start(message: Message):
-#     await message.answer('Привет', reply_markup=kb.main)
-#     await message.reply('Как дела')
-
-
-# @router.message(CommandStart())
-# async def cmd_start(message: Message):
-#     await message.answer('Привет', reply_markup=kb.main)
-#     await message.reply('Как дела')
-
-@router.message(Command('help'))
-async def cmd_help(message: Message):
-    await message.answer("Вы нажали на кнопку помощи")
-
-@router.message(F.text == 'У меня всё хорошо')
-async def nice(message: Message):
-    await message.answer("Я очень рад")
-
-@router.message(F.text == 'Каталог')
-async def catalog(message: Message):
-    await message.answer("Выберите категорию товара", reply_markup=kb.catalog)
-
-@router.callback_query(F.data == 't_shirt')
-async def catalog(callback: CallbackQuery):
-    await callback.answer("Вы выбрали категорию футболок")
-    await callback.message.answer("Вы выбрали категорию футболок")
-
-# @router.message(Command('register'))
-# async def register(message: Message, state: FSMContext):
-#     await state.set_state(Register.name)
-#     await message.answer("Введите ваше имя")
-#
-# @router.message(Register.name)
-# async def register_name(message: Message, state: FSMContext):
-#     await state.update_data(name=message.text)
-#     await state.set_state(Register.age)
-#     await message.answer("Введите ваш возраст")
-#
-# @router.message(Register.age)
-# async def register_age(message: Message, state: FSMContext):
-#     await state.update_data(age=message.text)
-#     await state.set_state(Register.number)
-#     await message.answer("Отправьте ваш номер телефона", reply_markup=kb.get_number)
-#
-# @router.message(Register.number, F.contact)
-# async def register_number(message: Message, state: FSMContext):
-#     await state.update_data(number=message.contact)
-#     data =await state.get_data()
-#     await message.answer(f"Ваше имя : {data['name']} \n номер {data['number']}\n лет {data['age']}")
-#
-#
+#-------------------------------------------------------
+@router.message(F.document)
+async def download_pdf(message: Message):
+    docs_path = f"pdfs"
+    os.makedirs(docs_path, mode=0o777, exist_ok=True)
+    await message.bot.download(message.document, destination=os.path.join(docs_path, f"{message.from_user.id}.pdf"))
+    await message.answer('Супер! 🔥 резюме прикреплено!', reply_markup=kb.back_to_profile)

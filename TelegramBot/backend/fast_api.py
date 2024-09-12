@@ -143,7 +143,6 @@ async def upload_image(profile_id: str, image: UploadFile = File(...)):
 
 async def get_top_all(profile_id: str):
     """Тут DS логика. Пользователи лежат в словаре USERS (profile_id: класс User)"""
-
     return recsys.get_score_by_forms(USERS, profile_id)
 
 
