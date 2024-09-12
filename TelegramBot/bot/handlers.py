@@ -130,8 +130,8 @@ async def apply_n_gramms(about_me : str, n_gramms: List[List]):
 @router.message(F.text.regexp(r'^\/\d+$'))# если это команды по типу /1 /6 (пишет пользователь)
 # @router.callback_query(F.data.startswith('rec_'))# если это коллбеки по типу rec_1 rec_6 (Кнопка далее)
 @router.callback_query(F.data == 'search_interlocutor')
-@router.message(F.text == '🚀Далее')
-@router.message(Command('🚀Далее'))
+@router.message(F.text == '🚀 Далее')
+@router.message(Command('🚀 Далее'))
 async def catalog(message: Message, state: FSMContext):
     await state.set_state(None)  # Сразу зануляем все стейты
     print('ВОШЕЛ В КАТОЛОГ')
@@ -142,7 +142,7 @@ async def catalog(message: Message, state: FSMContext):
     print('user_pointers', user_pointers)
     print(message)
     text = message.text if isinstance(message, Message) else message.data
-    if (user_id not in user_pointers.keys() or text.startswith(('search_', '/search_'))) and text != '🚀Далее':
+    if (user_id not in user_pointers.keys() or text.startswith(('search_', '/search_'))) and text != '🚀 Далее':
         print('Ни разу не был')
 
         recommendation = await Network.get_recommendation(user_id)
@@ -173,9 +173,9 @@ async def catalog(message: Message, state: FSMContext):
         rec_cnt = int(eval(rec_cnt_row.replace("len=", "")))
         print(rec_cnt)
         print('Был')
-        if text != '🚀Далее':
+        if text != '🚀 Далее':
             text = message.text if isinstance(message, Message) else message.data
-            serial_rec_num = int(text.replace('rec_', '').replace('-', '\-'),)#кейс если мы пришли через
+            serial_rec_num = int(text.replace('rec_', '').replace('/', ''))#кейс если мы пришли через
         else:
             serial_rec_num = user_pointers[user_id] + 1
 
@@ -232,8 +232,6 @@ async def ask_confirmation(message: Message, state: FSMContext):
                 result_cv_str += f"{user_dict['cv_path']}"
 
             return result_cv_str
-
-        
 
         profile_str =f"{user_dict['name']}, твоя анкета:\n\n" + \
             f"🧐 Обо мне:\n{user_dict['about_me']}\n\n" + \
@@ -390,6 +388,7 @@ async def parse_and_update_cv(cv_link: str, user_id: int) -> bool:
     
     '''
     # TODO : not async !!!
+    print(f'bot:parse_and_update_cv:{cv_link=}')
     hh_resume_dict = hh_parser.get_data_from_hh_link(link=cv_link)
     print(f'bot:parse_and_update_cv:{hh_resume_dict=}')
     if hh_resume_dict is not None:
