@@ -10,6 +10,8 @@ from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from data_science.recsys.recsys import TextVectorizer_v2, RecSys
 from data_science.recsys.user import User
 
+from pprint import pprint
+
 app = FastAPI()
 
 USERS = {
@@ -54,7 +56,7 @@ async def update_profile(profile_id: str, update_data: dict):
         if profile_id not in USERS.keys():
             USERS[profile_id] = User(profile_id)
         for attr, value in update_data.items():
-            if attr in ['id', 'name', 'about_me', 'cv_path', 'target', 'hh_cv']:
+            if attr in ['id', 'name', 'about_me', 'cv_path', 'target', 'hh_cv', 'github_cv']:
                 setattr(USERS[profile_id], attr, value)
         return profile_id
 
@@ -79,6 +81,8 @@ async def update_profile():
 async def predict(profile_id: str,
                   rec_num: Optional[int] = 0,
                   refresh: Optional[bool] = True):
+    pprint(f'back:predict:{profile_id=}\n{USERS=}')
+    
     if profile_id not in USERS.keys():
         return status.HTTP_404_NOT_FOUND
     if refresh or profile_id not in RECOMENDATIONS.keys(): # Если пользователя нет - генерим рекомендации и даём самую первую
@@ -101,7 +105,7 @@ async def predict(profile_id: str,
 async def implement(profile_id: str,
                     inplement_num: Optional[int] = 0,
                     refresh: Optional[bool] = True):
-    print(RECOMENDATIONS)
+    print(f'back:implement:{RECOMENDATIONS=}')
     if profile_id not in RECOMENDATIONS.keys():
         return status.HTTP_404_NOT_FOUND
 
@@ -139,12 +143,14 @@ async def upload_image(profile_id: str, image: UploadFile = File(...)):
 
 async def get_top_all(profile_id: str):
     """Тут DS логика. Пользователи лежат в словаре USERS (profile_id: класс User)"""
+
     return recsys.get_score_by_forms(USERS, profile_id)
 
 
 async def get_implementation(profile_id: str, n_gramm_split:int = 2):
     print("\n\nВызываем метод get_implementation\n\n")
 
+    pprint(f"backend:get_implementation:\n{USERS=}")
     return recsys.get_implementation(RECOMENDATIONS[profile_id], USERS, profile_id, n_gramm_split)
 
 if __name__ == "__main__":

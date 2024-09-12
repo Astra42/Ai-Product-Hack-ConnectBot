@@ -7,6 +7,7 @@ from TelegramBot.bot.network import Network
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from data_science.hh_parser import hh_parser
+from data_science.github_parser import github_parser
 
 
 from aiogram import F, Router
@@ -130,8 +131,8 @@ async def apply_n_gramms(about_me : str, n_gramms: List[List]):
 @router.message(F.text.regexp(r'^\/\d+$'))# если это команды по типу /1 /6 (пишет пользователь)
 # @router.callback_query(F.data.startswith('rec_'))# если это коллбеки по типу rec_1 rec_6 (Кнопка далее)
 @router.callback_query(F.data == 'search_interlocutor')
-@router.message(F.text == '🚀Далее')
-@router.message(Command('🚀Далее'))
+@router.message(F.text == '🚀 Далее')
+@router.message(Command('🚀 Далее'))
 async def catalog(message: Message, state: FSMContext):
     await state.set_state(None)  # Сразу зануляем все стейты
     print('ВОШЕЛ В КАТОЛОГ')
@@ -142,11 +143,11 @@ async def catalog(message: Message, state: FSMContext):
     print('user_pointers', user_pointers)
     print(message)
     text = message.text if isinstance(message, Message) else message.data
-    if (user_id not in user_pointers.keys() or text.startswith(('search_', '/search_'))) and text != '🚀Далее':
+    if (user_id not in user_pointers.keys() or text.startswith(('search_', '/search_'))) and text != '🚀 Далее':
         print('Ни разу не был')
 
         recommendation = await Network.get_recommendation(user_id)
-        
+        print(f'bot:catalog:{recommendation=}')
         
         text_get_inplementation = await Network.get_inplementation(user_id)
         print(f'{text_get_inplementation=}')
@@ -173,9 +174,9 @@ async def catalog(message: Message, state: FSMContext):
         rec_cnt = int(eval(rec_cnt_row.replace("len=", "")))
         print(rec_cnt)
         print('Был')
-        if text != '🚀Далее':
+        if text != '🚀 Далее':
             text = message.text if isinstance(message, Message) else message.data
-            serial_rec_num = int(text.replace('rec_', '').replace('-', '\-'),)#кейс если мы пришли через
+            serial_rec_num = int(text.replace('rec_', '').replace('/', ''))#кейс если мы пришли через
         else:
             serial_rec_num = user_pointers[user_id] + 1
 
@@ -188,13 +189,21 @@ async def catalog(message: Message, state: FSMContext):
                 user_pointers[user_id] = serial_rec_num
 
             recommendation = await Network.get_recommendation(user_id, rec_num=user_pointers[user_id] - 1, refresh=False)
-            n_gramms = eval(await Network.get_inplementation(user_id, inplement_num=user_pointers[user_id] - 1, refresh=False))
+            
+            try:
+                n_gramms = eval(await Network.get_inplementation(user_id, inplement_num=user_pointers[user_id] - 1, refresh=False))
+            except Exception as e:
+                print(f'bot:catalog {e=}')
+                n_gramms = []
+            
             print('n_gramms', n_gramms)
 
             content = await get_profile_str(user_pointers[user_id], eval(recommendation), n_gramms=n_gramms)
             await answer_by_msg_or_clb(
                 message, content,
-                reply_markup=kb.get_watch_next_kb_buttons())# kb.get_watch_next_kb(num=user_pointers[user_id])
+                reply_markup=kb.get_watch_next_kb_buttons()
+                # kb.get_watch_next_kb(num=user_pointers[user_id])
+            )
 
 
 
@@ -227,13 +236,19 @@ async def ask_confirmation(message: Message, state: FSMContext):
                     about_me_hh_str += "..."
                 
                 result_cv_str += f"О себе: {about_me_hh_str}"
+            elif 'github_username' in user_dict['github_cv'] and user_dict['github_cv']['github_username'] != "":
+                result_cv_str += f"👤 {user_dict['github_cv']['github_username']}\n"
+                
+                if user_dict['github_cv']['github_bio'] != "":
+                    about_me_github_str = f"{user_dict['github_cv']['github_bio'][:300]}"
+                if len(user_dict['github_cv']['github_bio']) > 300:
+                    about_me_github_str += "..."
+                result_cv_str += f"О себе: {about_me_github_str}"
 
             else:
                 result_cv_str += f"{user_dict['cv_path']}"
 
             return result_cv_str
-
-        
 
         profile_str =f"{user_dict['name']}, твоя анкета:\n\n" + \
             f"🧐 Обо мне:\n{user_dict['about_me']}\n\n" + \
@@ -255,6 +270,7 @@ async def start(message: Message):
 Здесь ты можешь поделиться своими интересами 🧙‍, увлечениями 🤸‍
 описать какого собседника ты хочешь найти 🤠
 """
+    print(f"bot:start:{message.bot.id=}")
     sent_message = await message.answer(hi_str, reply_markup=kb.hi_kb)
     await save_message_id(sent_message, message)
     
@@ -374,7 +390,7 @@ async def edit_name(callback: CallbackQuery, state: FSMContext):
     # await save_message_id(callback)
     await delete_all_messages(callback, callback)
     await state.set_state(Editing.edit_cv_path)
-    sent_message = await callback.message.answer("""Изменить ссылку на CV [hh.ru]:""")
+    sent_message = await callback.message.answer("""Изменить ссылку на CV:\n* hh.ru\n* github.com:""")
     await save_message_id(sent_message, callback)
 
 
@@ -389,26 +405,51 @@ async def parse_and_update_cv(cv_link: str, user_id: int) -> bool:
     
     '''
     # TODO : not async !!!
+    print(f'bot:parse_and_update_cv:{cv_link=}')
     hh_resume_dict = hh_parser.get_data_from_hh_link(link=cv_link)
     print(f'bot:parse_and_update_cv:{hh_resume_dict=}')
-    if hh_resume_dict is not None:
+    
+    if hh_resume_dict is not None and 'position' in hh_resume_dict and hh_resume_dict['position'] != '':
         is_success = await Network.update_data(user_id, {"hh_cv": hh_resume_dict})
         print(f'bot:parse_and_update_cv:{is_success=}')
         if is_success:
             return True
-    else:
-        empty_hh_resume_dict =  {
-            "position": "",
-            "age": "",
-            "gender": "",
-            "job_search_status": "",
-            "about": "",
-            "jobs": [],
-            "tags": [],
-            "eduacation": [],
-            "link": ""
-        }
-        await Network.update_data(user_id, {"hh_cv": empty_hh_resume_dict})
+
+    # dont need - in User __init__ empty class assign
+    # empty_hh_resume_dict =  {
+    #     "position": "",
+    #     "age": "",
+    #     "gender": "",
+    #     "job_search_status": "",
+    #     "about": "",
+    #     "jobs": [],
+    #     "tags": [],
+    #     "eduacation": [],
+    #     "link": ""
+    # }
+    # await Network.update_data(user_id, {"hh_cv": empty_hh_resume_dict})
+
+    # TODO : not async !!!
+    try:
+        github_resume_dict = github_parser.get_data_from_github_link(github_url=cv_link)
+    except Exception as e:
+        print(f'bot:parse_and_update_cv:{e=}')
+        github_resume_dict = None
+    print(f'bot:parse_and_update_cv:{github_resume_dict=}')
+        
+    if github_resume_dict is not None:
+        is_success = await Network.update_data(user_id, {"github_cv": github_resume_dict})
+        print(f'bot:parse_and_update_cv:{is_success=}')
+        if is_success:
+            return True
+
+    # empty_github_cv = {
+    #             "github_username": "",
+    #             "github_bio": "",
+    #             "github_link": "",
+    #             "github_repos": [
+    #             ]
+    #         }
 
     return False
 
