@@ -27,6 +27,4 @@
 
 <!-- <iframe width="560" height="315" src="https://www.youtube.com/embed/oSSHahL8XgE" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe> -->
 
-[![Видео на YouTube](https://img.youtube.com/vi/oSSHahL8XgE/0.jpg)](https://www.youtube.com/watch?v=oSSHahL8XgE)
-
-Если видео не отображается, вы можете посмотреть его на [YouTube](https://www.youtube.com/watch?v=oSSHahL8XgE).
+[![Видео на YouTube](https://img.youtube.com/vi/rmwsualqTjE/0.jpg)](https://www.youtube.com/watch?v=rmwsualqTjE)
