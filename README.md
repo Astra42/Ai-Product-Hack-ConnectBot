@@ -17,9 +17,12 @@
 Все перечисленные свойства в совокупности с приятным и минималистическим дизайном выведут ваше мероприятие на новый уровень!   
 
 
-## Интро
-
 <!-- <video src='./docs/video/demo_tg_video.mkv' width=180/> | <video src='video2.mp4' width=180/> -->
 
-<video src='./docs/video/demo_tg_video.mp4' />
+<!-- <video src='https://www.youtube.com/watch?v=oSSHahL8XgE' /> -->
 
+<!-- ![=видео не загрузилось=](https://www.youtube.com/watch?v=oSSHahL8XgE) -->
+
+<!-- https://www.youtube.com/watch?v=YOUTUBE_VIDEO_ID_HERE -->
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/oSSHahL8XgE" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
