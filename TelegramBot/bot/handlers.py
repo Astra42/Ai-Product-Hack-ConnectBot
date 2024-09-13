@@ -124,13 +124,30 @@ user_pointers = {} # dict[user: number_of_recomendred_profile]
 user_pointers_lock = asyncio.Lock()
 # __RECOMMENDS/
 
-async def apply_n_gramms(about_me : str, n_gramms: List[List]):
+# async def apply_n_gramms(about_me : str, n_gramms: List[List]):
+#     last_pairs = ''
+#
+#     for start, end in n_gramms:
+#         if f"{start}-{end}" not in last_pairs:
+#             about_me = about_me[:start] + "<u>" + about_me[start:end]+ "</u>" + about_me[end:]
+#             last_pairs += f", {start}-{end}"
+#     return about_me
+
+async def apply_n_gramms(about_me: str, n_gramms: List[List]):
+    n_gramms = n_gramms[:3]
+    n_gramms = sorted(n_gramms, key=lambda x: x[0])
     last_pairs = ''
+    pointer = 0
+    phrases = []#список фраз по нграммам
+    about_me_etalon = about_me
     for start, end in n_gramms:
         if f"{start}-{end}" not in last_pairs:
-            about_me = about_me[:start] + "<u>" + about_me[start:end]+ "</u>" + about_me[end:]
             last_pairs += f", {start}-{end}"
-    return about_me
+            phrases.append("<b>" + about_me_etalon[start:end] + "</b>")
+            start, end = start + pointer * 7, end + pointer * 7
+            about_me = about_me[:start] + "<u>" + about_me[start:end] + "</u>" + about_me[end:]
+            pointer += 1
+    return about_me, phrases
 
 
 async def get_picture(id):
@@ -228,6 +245,38 @@ async def catalog(message: Message, state: FSMContext):
                 # kb.get_watch_next_kb(num=user_pointers[user_id])
             )
 
+def pretty_cv(user_dict: dict) -> str:
+    result_cv_str = ""
+    if user_dict['hh_cv'] and isinstance(user_dict['hh_cv'], dict):
+        if user_dict['hh_cv']['position']:
+            result_cv_str += f"📝 CV | 👤 {user_dict['hh_cv']['position']}\n"
+            # result_cv_str += f"👤 Позиция: {user_dict['hh_cv']['position']}\n"
+
+            about_me_hh_str = f"{user_dict['hh_cv']['about'][:300]}"
+            if len(user_dict['hh_cv']['about']) > 300:
+                about_me_hh_str += "..."
+
+            # result_cv_str += f"О себе: {about_me_hh_str}"
+            result_cv_str += f"{about_me_hh_str}"
+
+    if user_dict['github_cv']:
+        if result_cv_str != "" or result_cv_str != "\n":
+            result_cv_str += "\n\n"
+
+        if 'github_username' in user_dict['github_cv'] and user_dict['github_cv']['github_username'] != "" \
+                and user_dict['github_cv']['github_username'] is not None:
+            result_cv_str += f"💻 github | 👤 {user_dict['github_cv']['github_username']}\n"
+            # result_cv_str += f"👤 {user_dict['github_cv']['github_username']}\n"
+
+            if user_dict['github_cv']['github_bio'] is not None \
+                    and user_dict['github_cv']['github_bio'] != "":
+
+                about_me_github_str = f"{user_dict['github_cv']['github_bio'][:300]}"
+
+                if len(user_dict['github_cv']['github_bio']) > 300:
+                    about_me_github_str += "..."
+                # result_cv_str += f"О себе: {about_me_github_str}"
+                result_cv_str += f"{about_me_github_str}"
 
 # @router.message(F.text == "🍺 / 🍷")
 @router.message(Command('set_profile'))
@@ -643,13 +692,29 @@ async def set_target(message: Message, state: FSMContext):
     await ask_confirmation(message, state)
 
 async def get_profile_str(rec_num, user_dict: dict, n_gramms: list):
-    n_gramms = n_gramms[:1]
+    print('GODS n_gramms', n_gramms)
+    # n_gramms = n_gramms[:1]
+    about_inplemented, phrases = await apply_n_gramms(user_dict['about_me'], n_gramms)
+    print('user_dict', user_dict)
+    print("user_dict['github_cv']", user_dict['github_cv'], type(user_dict['github_cv']))
+    print("user_dict['hh_cv']", user_dict['hh_cv'], type(user_dict['hh_cv']))
+
+    git_info = f"💻 gitHub:\n{pretty_cv(user_dict['github_cv'])}\n\n" if((user_dict['github_cv']!= None) \
+                            and (user_dict['github_cv'] is not None) and (user_dict['github_cv']!="") and (user_dict['github_cv']!="None") and (isinstance(user_dict['hh_cv'], dict)))  \
+                            else '💻 gitHub: [не прикреплён 🙈]\n\n'
+
+    hh_info = f"📝 CV:\n{pretty_cv(user_dict['hh_cv'])}\n\n" if ((user_dict['hh_cv']!= None) \
+                            and (user_dict['hh_cv'] is not None) and (user_dict['hh_cv']!="") and (user_dict['hh_cv']!="None") and (isinstance(user_dict['hh_cv'], dict))) \
+                            else '📝 CV: [не прикреплён 🙈]\n\n'
+
 
     return "-" * 10 + '\n' + \
     f"/{rec_num}" + '\n' +\
     f"{user_dict['name']}\n\n" + \
-    f"🧐 About:\n{await apply_n_gramms(user_dict['about_me'], n_gramms)}\n\n" + \
-    f"📝 CV ссылка:\n{user_dict['cv_path']}\n\n"
+    f"🧐 About:\n{about_inplemented}\n\n" + \
+    git_info + \
+    hh_info + \
+    f"🤝 Общее:\n{', '.join(phrases)}\n"
 
 async def answer_by_msg_or_clb(message: Optional[Union[Message, CallbackQuery]], content : str,  reply_markup=None, photo=None):
     message_type = message.message if isinstance(message, CallbackQuery) else message
@@ -699,3 +764,9 @@ async def download_pdf(message: Message):
     os.makedirs(docs_path, mode=0o777, exist_ok=True)
     await message.bot.download(message.document, destination=os.path.join(docs_path, f"{message.from_user.id}.pdf"))
     await message.answer('Супер! 🔥 резюме прикреплено!', reply_markup=kb.back_to_profile)
+
+@router.message(F.text == 'delpic')
+async def catalog(message: Message):
+    import os
+    os.remove('C:\\Users\\USER\\Desktop\\Ai-Product-Hack-ConnectBot\\TelegramBot\\bot\media\\597695657.jpg')
+    await message.answer('Супер! 🔥 ИИнтеграция ваще топ', reply_markup=kb.back_to_profile)
