@@ -5,6 +5,7 @@ from nltk.corpus import stopwords
 from nltk import ngrams
 from typing import List, Union, Optional
 import re
+import copy
 
 nltk.download('stopwords')
 
@@ -88,6 +89,9 @@ class RecSys:
             dict - словарь пользователей с предобработанными полями "hh_cv" и "github_cv"
         """
         db = database.copy()
+
+        # Копируем объекты людей
+        db = {idx: copy.deepcopy(db[idx]) for idx in db.keys()}
 
         result = {}
 
@@ -222,11 +226,17 @@ class RecSys:
         Список n-gramm к анкетам рекомендаций [[(...),(...),(...)], [(...),(...),(...)]]
         """
 
+        USERS_COPY = USERS.copy()
+        USERS_COPY = self.__preprocess_forms(USERS_COPY)
+
+        RECOMENDATIONS_COPY = RECOMENDATIONS.copy()
+
+
         result = []
 
         # Получаем поле "кого ищем" у целевого юзера
         # Если вдруг в описании "кого ищу" у нас кейс а-ля "бупс" - будет "бупс бупс"
-        current_target = " ".join([USERS[id_current].target] * 2) if len(USERS[id_current].target.split()) < 2 else USERS[id_current].target
+        current_target = " ".join([USERS_COPY[id_current].target] * 2) if len(USERS_COPY[id_current].target.split()) < 2 else USERS_COPY[id_current].target
 
         print('current_target', current_target)
 
@@ -248,7 +258,7 @@ class RecSys:
 
         print("\n\Векторизовали целевого юзера\n\n")
 
-        for user in RECOMENDATIONS:
+        for user in RECOMENDATIONS_COPY:
             print("current user", user)
             # Получаем текст "о себе" других пользователей
             user_about_me = " ".join([user['about_me']] * 2) if len(user['about_me'].split()) < 2 else user['about_me']
@@ -272,7 +282,7 @@ class RecSys:
             ngramm_user_emb = self.model.vectorize(ngramm_user)
 
             # По столбцам близость i-ой n-grammы первого текста для каждой n-grammы из второго текста
-            print("смотрим дистанцию между", ngramm_target_emb, ngramm_user_emb)
+            # print("смотрим дистанцию между", ngramm_target_emb, ngramm_user_emb)
             distance = self.__get_distance(ngramm_target_emb, ngramm_user_emb)
 
             # Самые ближайшие n-граммы из второго текста
