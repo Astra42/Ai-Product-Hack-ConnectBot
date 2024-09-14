@@ -357,18 +357,20 @@ async def ask_confirmation(message: Message, state: FSMContext):
 
             try:  # Здесь под message скрывается коллебк - обрабатываем его
                 if isinstance(picture_out, str):  # Первый вариант, когда авы нет и нам надо известить
-                    sent_message = await message.message.bot.send_message(profile_str + picture_out, reply_markup=kb.profile_kb, chat_id=target_user_id)
+                    sent_message = await message.message.bot.send_message(profile_str + picture_out, chat_id=target_user_id)
+                    await message.message.bot.send_message(f"Вы пригласили {recomended_profile_dict['name']} на 🍻", chat_id=user_id)
                 else:  # Второй - ава есть, надо отправить как пикчу
-                    sent_message = await message.message.bot.send_photo(chat_id=target_user_id, photo=picture_out,
-                                                                        caption=profile_str, reply_markup=kb.profile_kb)
+                    sent_message = await message.message.bot.send_photo(chat_id=target_user_id, photo=picture_out, caption=profile_str)
+                    await message.message.bot.send_message(f"Вы пригласили {recomended_profile_dict['name']} на 🍻", chat_id=user_id)
 
             except Exception:  # если не угадали - это обычный message
                 if isinstance(picture_out, str):  # Первый вариант, когда авы нет и нам надо известить
-                    sent_message = await message.bot.send_message(profile_str + picture_out, reply_markup=kb.profile_kb, chat_id=target_user_id)
+                    sent_message = await message.bot.send_message(profile_str + picture_out, chat_id=target_user_id)
+                    await message.bot.send_message(f"Вы пригласили {recomended_profile_dict['name']} на 🍻", chat_id=user_id)
                 else:  # Второй - ава есть, надо отправить как пикчу
                     print(picture_out)
-                    sent_message = await message.bot.send_photo(chat_id=target_user_id, photo=picture_out, caption=profile_str,
-                                                                reply_markup=kb.profile_kb)
+                    sent_message = await message.bot.send_photo(chat_id=target_user_id, photo=picture_out, caption=profile_str)
+                    await message.bot.send_message(f"Вы пригласили {recomended_profile_dict['name']} на 🍻",chat_id=user_id)
 
         else:
             profile_str = f"{user_dict['name']}, твоя анкета:\n\n" + \
