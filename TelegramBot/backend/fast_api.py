@@ -175,5 +175,7 @@ async def get_implementation(profile_id: str, n_gramm_split:int = 2):
     pprint(f"backend:get_implementation:\n{USERS=}")
     return recsys.get_implementation(RECOMENDATIONS[profile_id], USERS, profile_id, n_gramm_split)
 
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host='127.0.0.1', port=8005)

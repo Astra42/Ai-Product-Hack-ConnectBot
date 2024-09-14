@@ -135,14 +135,21 @@ class RecSys:
 
         # Делаем предобработку для поля "hh_cv"
 
+        #Если вдруг в описании "кого ищу" у нас кейс а-ля "бупс" - будет "бупс бупс"
+        target_current_user = " ".join([db[id_current].target] * 2) if len(db[id_current].target.split()) < 2 else db[id_current].target
+
         # Векторизуем целевого юзера поле "target"
-        current_form_target = self.model.vectorize([db[id_current].target])
+
+        current_form_target = self.model.vectorize([target_current_user])
 
         # Векторизуем целевого юзера поле "hh_cv"
         current_hh_cv = self.model.vectorize([db[id_current].hh_cv])
 
+        # Если вдруг в нашем описании "about_me" кейс а-ля "пук" - будет "пук пук"
+        about_me_current_user = " ".join([db[id_current].about_me] * 2) if len(db[id_current].about_me.split()) < 2 else db[id_current].about_me
+
         # Векторизуем целевого юзера поле "about_me"
-        current_about_me = self.model.vectorize([db[id_current].about_me])
+        current_about_me = self.model.vectorize([about_me_current_user])
 
         # Векторизуем целевого юзера поле "github_cv"
         current_github_cv = self.model.vectorize([db[id_current].github_cv])
@@ -155,7 +162,12 @@ class RecSys:
         print(db)
 
         # Векторизуем у остальных юзеров поле "about_me"
-        other_forms_about_me = self.model.vectorize([db[key].about_me for key in db.keys()])
+
+        other_forms_about_me = self.model.vectorize([
+            " ".join([db[key].about_me] * 2)
+            if len(db[key].about_me.split()) < 2
+            else db[key].about_me
+            for key in db.keys()])
 
         # Векторизуем у остальных юзеров поле "hh_cv"
         other_forms_hh_cv = self.model.vectorize([db[key].hh_cv for key in db.keys()])
@@ -195,7 +207,7 @@ class RecSys:
         values, indices = torch.topk(score, k=score.shape[0])  # min(5, score.shape[0])
 
         return [{"id": db[list_indexes_users[idx]].id, "name": db[list_indexes_users[idx]].name, "about_me": db[list_indexes_users[idx]].about_me,
-                 "cv_path": db[list_indexes_users[idx]].cv_path} for idx in indices]
+                 "hh_cv": db[list_indexes_users[idx]].hh_cv, "github_cv": db[list_indexes_users[idx]].github_cv} for idx in indices]
 
     def get_implementation(self, RECOMENDATIONS: list, USERS: dict, id_current: int, n_gramm_split: int):
         """
@@ -213,7 +225,10 @@ class RecSys:
         result = []
 
         # Получаем поле "кого ищем" у целевого юзера
-        current_target = USERS[id_current].target
+        # Если вдруг в описании "кого ищу" у нас кейс а-ля "бупс" - будет "бупс бупс"
+        current_target = " ".join([USERS[id_current].target] * 2) if len(USERS[id_current].target.split()) < 2 else USERS[id_current].target
+
+        print('current_target', current_target)
 
         # очищаем поле "кого ищем" у целевого юзера
         clear_current_target = " ".join(
@@ -234,8 +249,10 @@ class RecSys:
         print("\n\Векторизовали целевого юзера\n\n")
 
         for user in RECOMENDATIONS:
+            print("current user", user)
             # Получаем текст "о себе" других пользователей
-            user_about_me = user['about_me']
+            user_about_me = " ".join([user['about_me']] * 2) if len(user['about_me'].split()) < 2 else user['about_me']
+
             print('user_about_me', user_about_me)
 
             # очищаем текст "о себе" у других пользователей
@@ -255,6 +272,7 @@ class RecSys:
             ngramm_user_emb = self.model.vectorize(ngramm_user)
 
             # По столбцам близость i-ой n-grammы первого текста для каждой n-grammы из второго текста
+            print("смотрим дистанцию между", ngramm_target_emb, ngramm_user_emb)
             distance = self.__get_distance(ngramm_target_emb, ngramm_user_emb)
 
             # Самые ближайшие n-граммы из второго текста
