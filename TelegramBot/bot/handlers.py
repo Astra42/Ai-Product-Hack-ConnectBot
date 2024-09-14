@@ -151,7 +151,7 @@ async def apply_n_gramms(about_me: str, n_gramms: List[List]):
 
 
 async def get_picture(id):
-    img_path = os.path.join('D:\\AIProductHack\\Ai-Product-Hack-ConnectBot\\TelegramBot\\bot\\media', f"{id}.jpg")
+    img_path = os.path.join('media', f"{id}.jpg")
     if os.path.exists(img_path):
         return FSInputFile(img_path)
     else:
@@ -278,15 +278,14 @@ def pretty_cv(user_dict: dict) -> str:
                 # result_cv_str += f"О себе: {about_me_github_str}"
                 result_cv_str += f"{about_me_github_str}"
 
-# @router.message(F.text == "🍺 / 🍷")
+@router.message(F.text == "🍺 / 🍷")
 @router.message(Command('set_profile'))
 @router.callback_query((F.data == 'set_profile'))
 async def ask_confirmation(message: Message, state: FSMContext):
     await state.set_state(None) # Сразу зануляем все стейты
     await delete_all_messages(message, message)
-    # await delete_all_messages(message.bot, message.from_user.id)    
+    # await delete_all_messages(message.bot, message.from_user.id)
 
-    
     user_id = message.from_user.id
     user_dict = await Network.get_specific_profile(user_id)
     if user_dict == '404':
@@ -341,28 +340,55 @@ async def ask_confirmation(message: Message, state: FSMContext):
             return result_cv_str
 
 
-        profile_str =f"{user_dict['name']}, твоя анкета:\n\n" + \
-            f"🧐 Обо мне:\n{user_dict['about_me']}\n\n" + \
-            f"{pretty_cv(user_dict)}\n\n" + \
-            f"🔎 Ищу:\n{user_dict['target']}\n\n" + \
-            f"📷 Чтобы поставить/именить аватарку, можешь прислать изображение в чат\n"
+
 
         picture_out = await get_picture(user_id)
 
 
+        if isinstance(message, Message) and message.text == "🍺 / 🍷":
+            profile_str = f"👋 Вами заинтересловался {user_dict['name']}\n\n" + \
+                          f"🧐 Обо мне:\n{user_dict['about_me']}\n\n" + \
+                          f"{pretty_cv(user_dict)}\n\n" + \
+                          f"🔎 Ищу:\n{user_dict['target']}\n\n"
 
-        try: # Здесь под message скрывается коллебк - обрабатываем его
-            if isinstance(picture_out, str):#Первый вариант, когда авы нет и нам надо известить
-                sent_message = await message.message.answer(profile_str + picture_out, reply_markup=kb.profile_kb)
-            else: # Второй - ава есть, надо отправить как пикчу
-                sent_message = await message.message.bot.send_photo(message.message.chat.id, photo=picture_out, caption=profile_str, reply_markup=kb.profile_kb)
+            recommendation = await Network.get_recommendation(user_id, rec_num=user_pointers[user_id] - 1, refresh=False)
+            recomended_profile_dict = eval(recommendation)
+            target_user_id = recomended_profile_dict['id']
 
-        except Exception: # если не угадали - это обычный message
-            if isinstance(picture_out, str):#Первый вариант, когда авы нет и нам надо известить
-                sent_message = await message.answer(profile_str + picture_out, reply_markup=kb.profile_kb)
-            else: # Второй - ава есть, надо отправить как пикчу
-                print(picture_out)
-                sent_message = await message.bot.send_photo(message.chat.id, photo=picture_out, caption=profile_str, reply_markup=kb.profile_kb)
+            try:  # Здесь под message скрывается коллебк - обрабатываем его
+                if isinstance(picture_out, str):  # Первый вариант, когда авы нет и нам надо известить
+                    sent_message = await message.message.bot.send_message(profile_str + picture_out, reply_markup=kb.profile_kb, chat_id=target_user_id)
+                else:  # Второй - ава есть, надо отправить как пикчу
+                    sent_message = await message.message.bot.send_photo(chat_id=target_user_id, photo=picture_out,
+                                                                        caption=profile_str, reply_markup=kb.profile_kb)
+
+            except Exception:  # если не угадали - это обычный message
+                if isinstance(picture_out, str):  # Первый вариант, когда авы нет и нам надо известить
+                    sent_message = await message.bot.send_message(profile_str + picture_out, reply_markup=kb.profile_kb, chat_id=target_user_id)
+                else:  # Второй - ава есть, надо отправить как пикчу
+                    print(picture_out)
+                    sent_message = await message.bot.send_photo(chat_id=target_user_id, photo=picture_out, caption=profile_str,
+                                                                reply_markup=kb.profile_kb)
+
+        else:
+            profile_str = f"{user_dict['name']}, твоя анкета:\n\n" + \
+                          f"🧐 Обо мне:\n{user_dict['about_me']}\n\n" + \
+                          f"{pretty_cv(user_dict)}\n\n" + \
+                          f"🔎 Ищу:\n{user_dict['target']}\n\n" + \
+                          f"📷 Чтобы поставить/именить аватарку, можешь прислать изображение в чат\n"
+
+            try: # Здесь под message скрывается коллебк - обрабатываем его
+                if isinstance(picture_out, str):#Первый вариант, когда авы нет и нам надо известить
+                    sent_message = await message.message.answer(profile_str + picture_out, reply_markup=kb.profile_kb)
+                else: # Второй - ава есть, надо отправить как пикчу
+                    sent_message = await message.message.bot.send_photo(message.message.chat.id, photo=picture_out, caption=profile_str, reply_markup=kb.profile_kb)
+
+            except Exception: # если не угадали - это обычный message
+                if isinstance(picture_out, str):#Первый вариант, когда авы нет и нам надо известить
+                    sent_message = await message.answer(profile_str + picture_out, reply_markup=kb.profile_kb)
+                else: # Второй - ава есть, надо отправить как пикчу
+                    print(picture_out)
+                    sent_message = await message.bot.send_photo(message.chat.id, photo=picture_out, caption=profile_str, reply_markup=kb.profile_kb)
 
     await save_message_id(sent_message, message)
 
@@ -734,7 +760,7 @@ async def answer_by_msg_or_clb(message: Optional[Union[Message, CallbackQuery]],
 
 #--------------------ФОТО------------------
 async def _download_photo(message: Message, photo = None, show_keyboard: bool = True):
-    media_path = f"D:\\AIProductHack\\Ai-Product-Hack-ConnectBot\\TelegramBot\\bot\\media"
+    media_path = f"media"
     os.makedirs(media_path, mode=0o777, exist_ok=True)
     if photo is None:
         photo = message.photo[-1]
