@@ -151,7 +151,7 @@ async def apply_n_gramms(about_me: str, n_gramms: List[List]):
 
 
 async def get_picture(id):
-    img_path = os.path.join('media', f"{id}.jpg")
+    img_path = os.path.join('D:\\AIProductHack\\Ai-Product-Hack-ConnectBot\\TelegramBot\\bot\\media', f"{id}.jpg")
     if os.path.exists(img_path):
         return FSInputFile(img_path)
     else:
@@ -734,7 +734,7 @@ async def answer_by_msg_or_clb(message: Optional[Union[Message, CallbackQuery]],
 
 #--------------------ФОТО------------------
 async def _download_photo(message: Message, photo = None, show_keyboard: bool = True):
-    media_path = f"media"
+    media_path = f"D:\\AIProductHack\\Ai-Product-Hack-ConnectBot\\TelegramBot\\bot\\media"
     os.makedirs(media_path, mode=0o777, exist_ok=True)
     if photo is None:
         photo = message.photo[-1]
