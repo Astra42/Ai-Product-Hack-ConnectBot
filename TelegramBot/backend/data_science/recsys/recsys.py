@@ -75,7 +75,7 @@ class RecSys:
             model: TextVectorizer_v2 - модель для векторизации текста
         """
         self.model = model
-        self.stop_words = list(stopwords.words('russian'))
+        self.stop_words = list(stopwords.words('russian')) + list(stopwords.words('english'))
 
     def __preprocess_forms(self, database: dict) -> dict:
         """
@@ -266,11 +266,16 @@ class RecSys:
             pair_n_gramms = [{"curr_n_gramm": slice_list_target[i], "target_n_gramm": slice_list_user[max_indexes[i]],
                               "score": max_values[i].numpy()} for i in range(max_indexes.shape[0])]
 
+            # [:min(3, len(pair_n_gramms))]
+
+
             # Берём 50% самых близких n-gramm
             pair_n_gramms = [n_gramm["target_n_gramm"] for n_gramm in
-                             sorted(pair_n_gramms, key=lambda x: x['score'], reverse=True)[:min(3, len(pair_n_gramms))]]
+                             sorted(pair_n_gramms, key=lambda x: x['score'], reverse=True)]
 
-            result.append(pair_n_gramms)
+            pair_n_gramms = list(set(pair_n_gramms))
+
+            result.append(pair_n_gramms[:min(3, len(pair_n_gramms))])
 
         print("\n\nВозвращаем результат\n\n")
 
